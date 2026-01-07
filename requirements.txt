@@ -1,0 +1,17 @@
+# PDF Processing Libraries
+pdfplumber>=0.10.0
+PyMuPDF>=1.23.0
+pytesseract>=0.3.10
+Pillow>=10.0.0
+
+# Table Extraction
+camelot-py[cv]>=0.11.0
+tabula-py>=2.8.0
+
+# Document Generation
+python-docx>=1.0.0
+pandas>=2.0.0
+openpyxl>=3.1.0
+
+# Utilities
+tqdm>=4.66.0
