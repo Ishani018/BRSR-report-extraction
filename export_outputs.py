@@ -50,11 +50,12 @@ def export_to_docx(
     year: str
 ) -> Path:
     """
-    Export extracted text to DOCX format with preserved structure.
+    Export extracted text to DOCX format - PAGE BY PAGE for best readability.
+    Simpler structure that preserves original document flow.
     
     Args:
         pages: List of PageText objects
-        sections: List of Section objects
+        sections: List of Section objects (not used in this version)
         output_path: Directory to save the file
         company_name: Company name
         year: Report year
@@ -73,41 +74,33 @@ def export_to_docx(
     # Add metadata
     doc.add_paragraph(f"Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     doc.add_paragraph(f"Total Pages: {len(pages)}")
+    doc.add_paragraph(f"Extraction Method: {'OCR' if pages[0].method == 'ocr' else 'Direct Text Extraction'}")
     doc.add_page_break()
     
-    # Add sections
-    if sections:
-        logger.info(f"Adding {len(sections)} sections to document")
-        for section in sections:
-            # Add section heading
-            doc.add_heading(section.title, level=section.level)
+    # Export page by page for maximum readability and preservation of document flow
+    logger.info(f"Adding {len(pages)} pages to document")
+    
+    for page in pages:
+        # Add page marker
+        page_heading = doc.add_heading(f'Page {page.page_number}', level=2)
+        page_heading.style.font.size = Pt(12)
+        page_heading.style.font.bold = True
+        
+        if page.text.strip():
+            # Split into paragraphs - preserve original line breaks for layout
+            paragraphs = page.text.split('\n\n')
             
-            # Add page reference
-            page_ref = doc.add_paragraph(f"[Pages {section.start_page}-{section.end_page}]")
-            page_ref.italic = True
-            page_ref_format = page_ref.runs[0].font
-            page_ref_format.size = Pt(9)
-            
-            # Add section content
-            if section.content:
-                # Split content into paragraphs
-                paragraphs = section.content.split('\n\n')
-                for para in paragraphs:
-                    if para.strip():
-                        doc.add_paragraph(para.strip())
-            
-            # Add spacing
-            doc.add_paragraph()
-    else:
-        # If no sections, just add page-by-page content
-        logger.info("No sections found, adding page-by-page content")
-        for page in pages:
-            doc.add_heading(f'Page {page.page_number}', level=2)
-            if page.text.strip():
-                paragraphs = page.text.split('\n\n')
-                for para in paragraphs:
-                    if para.strip():
-                        doc.add_paragraph(para.strip())
+            for para_text in paragraphs:
+                if para_text.strip():
+                    # Keep single line breaks within paragraphs for formatting preservation
+                    para = doc.add_paragraph(para_text.strip())
+                    para.style.font.size = Pt(10)
+                    para.style.font.name = 'Calibri'
+        else:
+            doc.add_paragraph("[No text on this page]")
+        
+        # Add small spacing between pages
+        doc.add_paragraph()
     
     # Save document
     docx_path = output_path / "report.docx"

@@ -14,7 +14,8 @@ logger = logging.getLogger(__name__)
 
 def remove_extra_whitespace(text: str) -> str:
     """
-    Remove excessive whitespace while preserving paragraph structure.
+    Remove excessive whitespace while preserving paragraph structure and layout.
+    More conservative to maintain readability.
     
     Args:
         text: Input text
@@ -22,21 +23,34 @@ def remove_extra_whitespace(text: str) -> str:
     Returns:
         Cleaned text
     """
-    # Replace multiple spaces with single space
-    text = re.sub(r' +', ' ', text)
+    # Replace tabs with spaces
+    text = text.replace('\t', '    ')
     
-    # Replace multiple newlines with maximum two
-    text = re.sub(r'\n{3,}', '\n\n', text)
+    # Replace multiple spaces with single space (but preserve intentional spacing)
+    lines = text.split('\n')
+    cleaned_lines = []
     
-    # Remove spaces at line starts/ends
-    lines = [line.strip() for line in text.split('\n')]
+    for line in lines:
+        # Don't collapse spaces if line seems to be formatted (e.g., tables, aligned text)
+        if '  ' in line and len(line) > 20:
+            # Preserve formatting for what looks like tabular data
+            cleaned_lines.append(line.rstrip())
+        else:
+            # Normal line - collapse spaces
+            cleaned_lines.append(' '.join(line.split()))
     
-    return '\n'.join(lines)
+    text = '\n'.join(cleaned_lines)
+    
+    # Replace excessive newlines (more than 3) with maximum 2
+    text = re.sub(r'\n{4,}', '\n\n', text)
+    
+    return text
 
 
 def fix_broken_lines(text: str) -> str:
     """
     Attempt to fix lines that were broken by PDF extraction.
+    More conservative to avoid breaking intentional line breaks.
     
     Args:
         text: Input text
@@ -51,16 +65,26 @@ def fix_broken_lines(text: str) -> str:
     while i < len(lines):
         line = lines[i].strip()
         
-        # If line is too short and doesn't end with punctuation, might be broken
-        if line and len(line) < 80 and not line[-1] in '.!?:;,':
-            # Check if next line exists and starts with lowercase
-            if i + 1 < len(lines):
-                next_line = lines[i + 1].strip()
-                if next_line and next_line[0].islower():
-                    # Merge lines
-                    fixed_lines.append(line + ' ' + next_line)
-                    i += 2
-                    continue
+        # Skip empty lines
+        if not line:
+            fixed_lines.append(line)
+            i += 1
+            continue
+        
+        # If line is very short (< 40 chars) and doesn't end with punctuation or colon
+        # AND next line starts with lowercase, might be broken
+        if (len(line) < 40 and 
+            line and 
+            line[-1] not in '.!?:;,' and 
+            i + 1 < len(lines)):
+            
+            next_line = lines[i + 1].strip()
+            # Only merge if next line exists, starts with lowercase, and is not too short
+            if next_line and len(next_line) > 5 and next_line[0].islower():
+                # Merge lines
+                fixed_lines.append(line + ' ' + next_line)
+                i += 2
+                continue
         
         fixed_lines.append(line)
         i += 1

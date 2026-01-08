@@ -28,7 +28,7 @@ class PageText:
 
 def extract_text_from_text_pdf(pdf_path: Path) -> List[PageText]:
     """
-    Extract text from a text-based PDF using pdfplumber.
+    Extract text from a text-based PDF using pdfplumber with proper column handling.
     
     Args:
         pdf_path: Path to the PDF file
@@ -43,7 +43,13 @@ def extract_text_from_text_pdf(pdf_path: Path) -> List[PageText]:
         with pdfplumber.open(pdf_path) as pdf:
             for i, page in enumerate(pdf.pages):
                 try:
-                    text = page.extract_text() or ""
+                    # Try to detect and handle multi-column layouts
+                    text = extract_text_with_column_detection(page)
+                    
+                    # Fallback to standard extraction if column detection fails
+                    if not text or len(text.strip()) < 50:
+                        text = page.extract_text() or ""
+                    
                     pages.append(PageText(
                         page_number=i + 1,
                         text=text,
@@ -52,11 +58,20 @@ def extract_text_from_text_pdf(pdf_path: Path) -> List[PageText]:
                     logger.debug(f"Extracted {len(text)} characters from page {i+1}")
                 except Exception as e:
                     logger.error(f"Error extracting text from page {i+1}: {e}")
-                    pages.append(PageText(
-                        page_number=i + 1,
-                        text="",
-                        method='direct'
-                    ))
+                    # Try fallback
+                    try:
+                        text = page.extract_text() or ""
+                        pages.append(PageText(
+                            page_number=i + 1,
+                            text=text,
+                            method='direct'
+                        ))
+                    except:
+                        pages.append(PageText(
+                            page_number=i + 1,
+                            text="",
+                            method='direct'
+                        ))
                     
     except Exception as e:
         logger.error(f"Error opening PDF with pdfplumber: {e}")
@@ -67,9 +82,154 @@ def extract_text_from_text_pdf(pdf_path: Path) -> List[PageText]:
     return pages
 
 
+def extract_text_with_column_detection(page) -> str:
+    """
+    Extract text from a page with automatic column detection.
+    Dynamically handles any number of pages per PDF page (1, 2, 3, etc.), 
+    each with their own column structure.
+    
+    Args:
+        page: pdfplumber page object
+        
+    Returns:
+        Extracted text with proper column order
+    """
+    # Get page dimensions
+    page_width = page.width
+    page_height = page.height
+    
+    # Get all words with their bounding boxes
+    words = page.extract_words(x_tolerance=3, y_tolerance=3)
+    
+    if not words:
+        return ""
+    
+    if len(words) < 20:
+        # Not enough words to determine columns, use standard extraction
+        return page.extract_text() or ""
+    
+    # Helper function to find gaps in a list of word centers
+    def find_significant_gaps(word_centers, min_x, max_x, min_gap_size=30):
+        sorted_centers = sorted(set(word_centers))
+        gaps = []
+        for i in range(len(sorted_centers) - 1):
+            x_pos = sorted_centers[i]
+            if min_x < x_pos < max_x:
+                gap = sorted_centers[i + 1] - sorted_centers[i]
+                if gap > min_gap_size:
+                    gaps.append((gap, (sorted_centers[i] + sorted_centers[i + 1]) / 2))
+        return sorted(gaps, reverse=True)  # Largest gaps first
+    
+    # Helper function to reconstruct text from words
+    def words_to_text(word_list):
+        if not word_list:
+            return ""
+        
+        # Sort by vertical position, then horizontal
+        word_list.sort(key=lambda w: (round(w['top']), w['x0']))
+        
+        lines = []
+        current_line = []
+        current_top = word_list[0]['top']
+        
+        for word in word_list:
+            # If word is on roughly the same line (within 5 pixels), add to current line
+            if abs(word['top'] - current_top) <= 5:
+                current_line.append(word['text'])
+            else:
+                # New line - save current line and start new one
+                if current_line:
+                    lines.append(' '.join(current_line))
+                current_line = [word['text']]
+                current_top = word['top']
+        
+        # Don't forget the last line
+        if current_line:
+            lines.append(' '.join(current_line))
+        
+        return '\n'.join(lines)
+    
+    # Helper function to extract columns from a page section
+    def extract_page_with_columns(page_words, page_min_x, page_max_x):
+        if not page_words:
+            return ""
+        
+        # Find gaps within this page section
+        page_centers = [(w['x0'] + w['x1']) / 2 for w in page_words]
+        page_gaps = find_significant_gaps(page_centers, page_min_x, page_max_x, min_gap_size=30)
+        
+        if page_gaps and len(page_words) > 20:
+            # This page has columns - use the largest gap as column boundary
+            col_split = page_gaps[0][1]
+            left_col = [w for w in page_words if (w['x0'] + w['x1']) / 2 < col_split]
+            right_col = [w for w in page_words if (w['x0'] + w['x1']) / 2 >= col_split]
+            
+            if len(left_col) > 5 and len(right_col) > 5:
+                # Both columns have content
+                left_text = words_to_text(left_col)
+                right_text = words_to_text(right_col)
+                return left_text + "\n\n" + right_text
+        
+        # No columns or insufficient content - extract as single block
+        return words_to_text(page_words)
+    
+    try:
+        # Step 1: Find all large gaps that indicate page boundaries (>80 pixels)
+        word_centers = [(w['x0'] + w['x1']) / 2 for w in words]
+        all_gaps = find_significant_gaps(word_centers, page_width * 0.05, page_width * 0.95, min_gap_size=80)
+        
+        # Step 2: Determine page boundaries based on large gaps
+        if all_gaps:
+            # Create boundaries for each page section
+            # Sort split points left to right
+            split_points = sorted([gap[1] for gap in all_gaps])
+            
+            # Create page boundaries: [0, split1, split2, ..., width]
+            boundaries = [0] + split_points + [page_width]
+            
+            # Extract text from each page section
+            page_texts = []
+            for i in range(len(boundaries) - 1):
+                section_min_x = boundaries[i]
+                section_max_x = boundaries[i + 1]
+                
+                # Get words in this section
+                section_words = [w for w in words 
+                               if section_min_x <= (w['x0'] + w['x1']) / 2 < section_max_x]
+                
+                if section_words:
+                    section_text = extract_page_with_columns(section_words, section_min_x, section_max_x)
+                    if section_text:
+                        page_texts.append(section_text.strip())
+            
+            # Combine all page sections with separators
+            if page_texts:
+                return "\n\n=== PAGE BREAK ===\n\n".join(page_texts)
+        
+        # Step 3: No large gaps found - treat as single page with possible columns
+        smaller_gaps = find_significant_gaps(word_centers, page_width * 0.1, page_width * 0.9, min_gap_size=30)
+        
+        if smaller_gaps:
+            col_split = smaller_gaps[0][1]
+            left_col = [w for w in words if (w['x0'] + w['x1']) / 2 < col_split]
+            right_col = [w for w in words if (w['x0'] + w['x1']) / 2 >= col_split]
+            
+            if len(left_col) > 10 and len(right_col) > 10:
+                left_text = words_to_text(left_col)
+                right_text = words_to_text(right_col)
+                return left_text.strip() + "\n\n" + right_text.strip()
+        
+        # No structure detected - extract normally
+        return page.extract_text(x_tolerance=3, y_tolerance=3) or ""
+    
+    except Exception as e:
+        logger.debug(f"Column extraction failed, using standard: {e}")
+        return page.extract_text() or ""
+
+
 def extract_text_with_pymupdf(pdf_path: Path) -> List[PageText]:
     """
-    Extract text using PyMuPDF as a fallback method.
+    Extract text using PyMuPDF with layout preservation.
     
     Args:
         pdf_path: Path to the PDF file
@@ -85,7 +245,9 @@ def extract_text_with_pymupdf(pdf_path: Path) -> List[PageText]:
         for page_num in range(len(doc)):
             try:
                 page = doc[page_num]
-                text = page.get_text()
+                # Use "blocks" mode to preserve layout better than simple text extraction
+                text = page.get_text("text", sort=True)
+                
                 pages.append(PageText(
                     page_number=page_num + 1,
                     text=text,

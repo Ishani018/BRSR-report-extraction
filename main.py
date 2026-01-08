@@ -3,18 +3,17 @@ Main orchestration script for the PDF processing pipeline.
 """
 import logging
 import sys
+import json
 from pathlib import Path
 from typing import List, Dict, Any
+from datetime import datetime
 from tqdm import tqdm
 
 from config import DATA_DIR, LOGS_DIR, LOG_FORMAT, LOG_LEVEL
 from detect_pdf_type import detect_pdf_type, get_pdf_info
 from extract_text import extract_text
-from extract_tables import extract_tables, clean_table, filter_large_tables, filter_quality_tables
 from clean_text import clean_pages
-from segment_sections import segment_document
-from export_outputs import export_all, create_summary_report
-from extract_financial_data import FinancialDataExtractor
+from export_outputs import export_to_docx, create_output_directory
 
 
 def setup_logging(log_file: Path = None) -> None:
@@ -127,67 +126,43 @@ def process_single_pdf(pdf_path: Path) -> Dict[str, Any]:
         pages = extract_text(pdf_path, pdf_type)
         logger.info(f"  Extracted text from {len(pages)} pages")
         
-        # Step 4: Clean text
-        logger.info("Step 4/6: Cleaning text...")
+        # Step 4: Clean text (minimal cleaning to preserve layout)
+        logger.info("Step 4/5: Cleaning text...")
         cleaned_pages = clean_pages(pages)
         total_chars = sum(p.char_count for p in cleaned_pages)
         logger.info(f"  Cleaned {total_chars:,} characters")
         
-        # Step 5: Segment into sections
-        logger.info("Step 5/6: Segmenting into sections...")
-        sections = segment_document(cleaned_pages)
-        logger.info(f"  Identified {len(sections)} sections")
+        # Step 5: Export to DOCX (skip tables and complex segmentation for now)
+        logger.info("Step 5/5: Exporting to DOCX...")
         
-        # Step 6: Extract tables
-        logger.info("Step 6/6: Extracting tables...")
-        tables = extract_tables(pdf_path)
+        # Create output directory
+        output_path = create_output_directory(company_name, year)
         
-        # Clean and filter tables
-        for table in tables:
-            table.dataframe = clean_table(table.dataframe)
+        # Export just the DOCX with page-by-page content
+        docx_path = export_to_docx(cleaned_pages, [], output_path, company_name, year)
         
-        # Filter by quality first (removes junk tables) - lower threshold for inclusivity
-        tables = filter_quality_tables(tables, min_quality=0.15)
+        # Create simple metadata
+        metadata = {
+            "company": company_name,
+            "year": year,
+            "processing_date": datetime.now().isoformat(),
+            "pdf_info": pdf_info,
+            "pdf_type": pdf_type,
+            "statistics": {
+                "total_pages": len(cleaned_pages),
+                "total_characters": total_chars,
+                "extraction_method": pdf_type
+            }
+        }
         
-        # Then filter by size
-        tables = filter_large_tables(tables)
+        json_path = output_path / "metadata.json"
+        with open(json_path, 'w', encoding='utf-8') as f:
+            json.dump(metadata, f, indent=2, ensure_ascii=False)
         
-        logger.info(f"  Extracted {len(tables)} high-quality tables")
-        
-        # Step 7: Extract financial data intelligently
-        logger.info("Step 7/7: Extracting financial data patterns...")
-        extractor = FinancialDataExtractor()
-        
-        # Extract from tables
-        financial_data = extractor.extract_from_tables(tables)
-        
-        # Extract from text
-        full_text = '\\n'.join([p.text for p in cleaned_pages])
-        text_metrics = extractor.extract_from_text(full_text, year)
-        highlights = extractor.extract_key_highlights(full_text)
-        
-        financial_data['text_metrics'] = text_metrics
-        financial_data['highlights'] = highlights
-        
-        bs_count = len(financial_data.get('balance_sheet', []))
-        is_count = len(financial_data.get('income_statement', []))
-        cf_count = len(financial_data.get('cash_flow', []))
-        logger.info(f"  Identified {bs_count} balance sheets, {is_count} income statements, {cf_count} cash flow statements")
-        
-        # Export all outputs
-        logger.info("Exporting outputs...")
-        export_result = export_all(
-            pdf_info=pdf_info,
-            pdf_type=pdf_type,
-            pages=cleaned_pages,
-            sections=sections,
-            tables=tables,
-            company_name=company_name,
-            year=year,
-            financial_data=financial_data
-        )
-        
-        result.update(export_result)
+        result["output_directory"] = str(output_path)
+        result["docx"] = str(docx_path)
+        result["metadata"] = str(json_path)
+        result["files_created"] = [str(docx_path), str(json_path)]
         result["status"] = "success"
         
         logger.info(f"Successfully processed {pdf_path.name}")
