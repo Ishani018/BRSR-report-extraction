@@ -13,6 +13,7 @@ from datetime import datetime
 from pipeline.extract_text import PageText
 from pipeline.section_metadata import SectionBoundary, SectionContent, SectionType
 from pipeline.section_boundary_detector import SectionBoundaryDetector
+from pipeline.section_hierarchy_builder import SectionHierarchyBuilder
 
 logger = logging.getLogger(__name__)
 
@@ -96,7 +97,7 @@ class SectionContentExtractor:
         year: str
     ) -> Path:
         """
-        Export section content to separate DOCX file.
+        Export section content to separate DOCX file with hierarchical structure.
         
         Args:
             content: SectionContent to export
@@ -106,39 +107,31 @@ class SectionContentExtractor:
         Returns:
             Path to created DOCX file
         """
-        section_name = content.section_type.value.replace('_', ' ').title()
+        section_name_readable = content.section_type.value.replace('_', ' ').title()
         filename = f"{content.section_type.value}.docx"
         output_path = self.output_dir / filename
         
-        logger.info(f"Exporting {section_name} to {output_path}")
+        logger.info(f"Exporting {section_name_readable} to {output_path}")
         
-        doc = Document()
-        
-        # Add title
-        title = doc.add_heading(
-            f'{company_name} - {section_name} ({year})', 
-            level=0
+        # Build hierarchical structure
+        builder = SectionHierarchyBuilder(section_type=content.section_type.value)
+        hierarchy = builder.build_section_hierarchy(
+            text=content.text,
+            company=company_name,
+            year=year,
+            section_name=section_name_readable,
+            start_page=content.start_page,
+            end_page=content.end_page,
+            confidence=1.0  # Content already extracted with verified boundaries
         )
-        title.alignment = WD_ALIGN_PARAGRAPH.CENTER
         
-        # Add metadata
-        doc.add_paragraph(f"Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        doc.add_paragraph(f"Pages: {content.start_page}-{content.end_page}")
-        doc.add_paragraph(f"Character Count: {content.character_count:,}")
-        doc.add_page_break()
+        # Export hierarchical DOCX
+        builder.export_section_docx(hierarchy, output_path)
         
-        # Add content
-        # Split into paragraphs for better formatting
-        paragraphs = content.text.split('\n\n')
-        
-        for para_text in paragraphs:
-            if para_text.strip():
-                p = doc.add_paragraph(para_text.strip())
-                p.style.font.size = Pt(11)
-        
-        # Save document
-        doc.save(output_path)
-        logger.info(f"Saved {output_path}")
+        # Also export JSON
+        json_path = self.output_dir / f"{content.section_type.value}.json"
+        builder.export_section_json(hierarchy, json_path)
+        logger.info(f"Exported JSON structure to {json_path}")
         
         return output_path
     

@@ -30,27 +30,31 @@ if result["status"] == "success":
     section_dir = output_dir / "sections"
     if section_dir.exists():
         section_files = list(section_dir.glob("*.docx"))
+        json_files = list(section_dir.glob("*.json"))
         print(f"Section DOCX files: {len(section_files)}")
         for f in section_files:
+            print(f"  - {f.name}")
+        print(f"Section JSON files: {len(json_files)}")
+        for f in json_files:
             print(f"  - {f.name}")
         
         # Show metadata
         metadata_file = section_dir / "sections_metadata.json"
         if metadata_file.exists():
             import json
-            with open(metadata_file) as f:
+            with open(metadata_file, encoding='utf-8') as f:
                 metadata = json.load(f)
             print("\nSection detection results:")
             for section_key, data in metadata.items():
                 if data.get('extracted'):
                     boundary = data['boundary']
                     stats = data['content_stats']
-                    print(f"  ✓ {section_key}:")
+                    print(f"  [OK] {section_key}:")
                     print(f"      Pages: {boundary['start_page']}-{boundary['end_page']}")
                     print(f"      Confidence: {boundary['confidence']:.2f}")
                     print(f"      Characters: {stats['character_count']:,}")
                 else:
-                    print(f"  ✗ {section_key}: Not found")
+                    print(f"  [X] {section_key}: Not found")
 else:
     print(f"STATUS: failed - {result.get('error')}")
 print("="*80)

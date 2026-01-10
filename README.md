@@ -8,6 +8,7 @@ Automated Python pipeline to convert annual report PDFs into clean, readable DOC
 - **OCR Support**: Automatically applies OCR to scanned PDFs using Tesseract
 - **Smart Column Detection**: Dynamically handles any number of pages per PDF page (1, 2, 3+), each with their own column structure
 - **Section Extraction**: Automatically detects and extracts MD&A and Letter to Stakeholders sections
+- **Hierarchical JSON Output**: Full report and sections exported with detected headings and nested structure
 - **Layout Preservation**: Maintains proper reading order (left-to-right, top-to-bottom)
 - **Page-by-Page Organization**: Structured DOCX output with clear page separators
 - **Comprehensive Metrics**: Detailed quality analysis and extraction statistics
@@ -69,8 +70,50 @@ Generated files in `outputs/` folder:
 outputs/
   Company Name/
     year/
-      report.docx       # Clean, formatted document
-      metadata.json     # Processing statistics
+      report.docx                        # Clean, formatted full report
+      report.json                        # Full report with hierarchical structure
+      metadata.json                      # Processing statistics and quality metrics
+      sections/
+        mdna.docx                        # MD&A section with heading styles
+        mdna.json                        # MD&A hierarchical JSON structure
+        letter_to_stakeholders.docx      # Letter section with heading styles
+        letter_to_stakeholders.json      # Letter hierarchical JSON structure
+        sections_metadata.json           # Section boundaries and confidence scores
+```
+
+### JSON Structure
+
+Both the full report and individual sections are exported as hierarchical JSON with detected headings:
+
+```json
+{
+  "company": "Company Name",
+  "year": "2019",
+  "section": "Annual Report",
+  "start_page": 1,
+  "end_page": 142,
+  "confidence": 1.0,
+  "structure": [
+    {
+      "heading": "Financial Review",
+      "level": 2,
+      "content": ["paragraph 1...", "paragraph 2..."],
+      "subsections": [
+        {
+          "heading": "Revenue Analysis",
+          "level": 3,
+          "content": ["..."]
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "total_headings": 241,
+    "heading_levels": [1, 2, 3],
+    "character_count": 859845,
+    "paragraph_count": 532
+  }
+}
 ```
 
 ## How It Works
@@ -81,7 +124,14 @@ outputs/
    - Identifies column structure within each page
    - Maintains proper reading order
 3. **Text Cleaning**: Conservative cleaning that preserves layout
-4. **DOCX Export**: Generates structured document with page-by-page organization
+4. **Hierarchy Building**: Detects headings using deterministic heuristics
+   - Uppercase headings (Level 1)
+   - Title case headings (Level 2)
+   - Keyword matching (MD&A, Letter to Stakeholders topics)
+   - Structural cues (short lines, colons, numeric prefixes)
+5. **Export**: Generates both DOCX and hierarchical JSON
+   - DOCX with proper heading styles (Heading 1, 2, 3)
+   - JSON with nested structure for NLP/analytics
 
 ## Configuration
 
@@ -103,7 +153,9 @@ project/
 │   ├── export_outputs.py
 │   ├── section_boundary_detector.py
 │   ├── section_content_extractor.py
-│   └── section_metadata.py
+│   ├── section_hierarchy_builder.py
+│   ├── section_metadata.py
+│   └── utils.py
 ├── tests/            # Test and validation scripts
 │   ├── test_single.py
 │   ├── test_section_extraction.py

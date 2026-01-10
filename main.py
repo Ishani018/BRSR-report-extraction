@@ -16,6 +16,7 @@ from pipeline.clean_text import clean_pages
 from pipeline.export_outputs import export_to_docx, create_output_directory
 from pipeline.section_boundary_detector import SectionBoundaryDetector
 from pipeline.section_content_extractor import extract_sections_from_pdf
+from pipeline.section_hierarchy_builder import SectionHierarchyBuilder
 
 
 def setup_logging(log_file: Path = None) -> None:
@@ -135,14 +136,35 @@ def process_single_pdf(pdf_path: Path) -> Dict[str, Any]:
         total_chars = sum(p.char_count for p in cleaned_pages)
         logger.info(f"  Cleaned {total_chars:,} characters")
         
-        # Step 5: Export to DOCX (skip tables and complex segmentation for now)
-        logger.info("Step 5/5: Exporting to DOCX...")
+        # Step 5: Export to DOCX and JSON
+        logger.info("Step 5/6: Exporting to DOCX and JSON...")
         
         # Create output directory
         output_path = create_output_directory(company_name, year)
         
-        # Export just the DOCX with page-by-page content
+        # Export DOCX with page-by-page content
         docx_path = export_to_docx(cleaned_pages, [], output_path, company_name, year)
+        
+        # Also export full report as hierarchical JSON
+        logger.info("  Building hierarchical structure for full report...")
+        full_text = "\n\n".join([p.text for p in cleaned_pages])
+        
+        # Build hierarchy for full report (use 'mdna' type as default for business reports)
+        hierarchy_builder = SectionHierarchyBuilder(section_type='mdna')
+        full_report_hierarchy = hierarchy_builder.build_section_hierarchy(
+            text=full_text,
+            company=company_name,
+            year=year,
+            section_name="Annual Report",
+            start_page=1,
+            end_page=len(cleaned_pages),
+            confidence=1.0
+        )
+        
+        # Export full report JSON
+        json_report_path = output_path / "report.json"
+        hierarchy_builder.export_section_json(full_report_hierarchy, json_report_path)
+        logger.info(f"  Exported full report JSON to {json_report_path}")
         
         # Calculate extraction completeness with enhanced quality assessment
         pdf_total_pages = pdf_info.get('pages', len(cleaned_pages))
@@ -212,7 +234,8 @@ def process_single_pdf(pdf_path: Path) -> Dict[str, Any]:
         result["output_directory"] = str(output_path)
         result["docx"] = str(docx_path)
         result["metadata"] = str(json_path)
-        result["files_created"] = [str(docx_path), str(json_path)]
+        result["report_json"] = str(json_report_path)
+        result["files_created"] = [str(docx_path), str(json_path), str(json_report_path)]
         result["status"] = "success"
         
         logger.info(f"Successfully processed {pdf_path.name}")

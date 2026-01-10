@@ -17,6 +17,21 @@ result = process_single_pdf(pdf_path)
 print("\n" + "="*80)
 print("STATUS:", result['status'])
 if result['status'] == 'success':
-    print("Files created:", len(result.get('files_created', [])))
-    print("CSV files:", len(result.get('csv_files', [])))
+    output_dir = Path(result['output_directory'])
+    all_files = list(output_dir.rglob("*.*"))
+    print("Total files created:", len(all_files))
+    
+    # Show main files
+    print("\nMain report files:")
+    for f in sorted(output_dir.glob("*.*")):
+        size_kb = f.stat().st_size / 1024
+        print(f"  - {f.name} ({size_kb:.1f} KB)")
+    
+    # Show section files
+    sections_dir = output_dir / "sections"
+    if sections_dir.exists():
+        print("\nSection files:")
+        for f in sorted(sections_dir.glob("*.*")):
+            size_kb = f.stat().st_size / 1024
+            print(f"  - {f.name} ({size_kb:.1f} KB)")
 print("="*80)

@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import List, Dict, Any
 from datetime import datetime
 
-import pandas as pd
 from docx import Document
 from docx.shared import Pt, Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -31,10 +30,6 @@ def create_output_directory(company_name: str, year: str) -> Path:
     """
     output_path = OUTPUT_DIR / company_name / year
     output_path.mkdir(parents=True, exist_ok=True)
-    
-    # Create subdirectory for tables
-    tables_path = output_path / "tables"
-    tables_path.mkdir(exist_ok=True)
     
     logger.info(f"Created output directory: {output_path}")
     return output_path
@@ -108,45 +103,6 @@ def export_to_docx(
     return docx_path
 
 
-def export_tables_to_csv(
-    tables: List,
-    output_path: Path
-) -> List[Path]:
-    """
-    Export extracted tables to CSV files.
-    
-    Args:
-        tables: List of ExtractedTable objects
-        output_path: Directory to save the files
-        
-    Returns:
-        List of paths to created CSV files
-    """
-    logger.info(f"Exporting {len(tables)} tables to CSV")
-    
-    tables_dir = output_path / "tables"
-    saved_files = []
-    
-    for idx, table in enumerate(tables):
-        # Generate filename
-        table_name = f"table_{idx+1}_page_{table.page_number}.csv"
-        csv_path = tables_dir / table_name
-        
-        try:
-            # Clean the dataframe
-            df = table.dataframe.copy()
-            
-            # Save to CSV
-            df.to_csv(csv_path, index=False)
-            saved_files.append(csv_path)
-            
-            logger.debug(f"Saved table to: {csv_path}")
-            
-        except Exception as e:
-            logger.error(f"Error saving table {idx+1}: {e}")
-    
-    logger.info(f"Saved {len(saved_files)} tables to CSV")
-    return saved_files
 
 
 def export_metadata_to_json(
@@ -154,7 +110,6 @@ def export_metadata_to_json(
     pdf_type: str,
     pages: List[PageText],
     sections: List,
-    tables: List,
     output_path: Path,
     company_name: str,
     year: str,
@@ -201,16 +156,6 @@ def export_metadata_to_json(
             }
             for section in sections
         ],
-        "tables": [
-            {
-                "index": idx,
-                "page": table.page_number,
-                "rows": table.rows,
-                "columns": table.cols,
-                "extraction_method": table.method
-            }
-            for idx, table in enumerate(tables)
-        ],
         "pages": [
             {
                 "page_number": page.page_number,
@@ -239,7 +184,6 @@ def export_all(
     pdf_type: str,
     pages: List[PageText],
     sections: List,
-    tables: List,
     company_name: str,
     year: str,
     financial_data: Dict[str, Any] = None
@@ -252,7 +196,6 @@ def export_all(
         pdf_type: Type of PDF (text/scanned)
         pages: List of PageText objects
         sections: List of Section objects
-        tables: List of ExtractedTable objects
         company_name: Company name
         year: Report year
         financial_data: Extracted financial data (optional)
@@ -279,19 +222,10 @@ def export_all(
         logger.error(f"Error exporting to DOCX: {e}")
         results["docx_error"] = str(e)
     
-    # Export tables to CSV
-    try:
-        csv_paths = export_tables_to_csv(tables, output_path)
-        results["csv_files"] = [str(p) for p in csv_paths]
-        results["files_created"].extend([str(p) for p in csv_paths])
-    except Exception as e:
-        logger.error(f"Error exporting tables: {e}")
-        results["csv_error"] = str(e)
-    
     # Export metadata to JSON
     try:
         json_path = export_metadata_to_json(
-            pdf_info, pdf_type, pages, sections, tables,
+            pdf_info, pdf_type, pages, sections,
             output_path, company_name, year, financial_data
         )
         results["metadata"] = str(json_path)
