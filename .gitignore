@@ -41,3 +41,22 @@ sample_*.pdf
 # Temporary files
 *.tmp
 *.temp
+
+# Large/Binary File Types (Critical: Do not push large files to GitHub)
+# PDF files - Ignore all PDFs (we do not want to push thousands of PDFs)
+*.pdf
+
+# Document files
+*.docx
+
+# Archive files
+*.zip
+
+# Excel files - Ignore large dataset files (already covered in data/ folder above)
+*.xlsx
+
+# Exceptions (Keep these files - explicitly allowed)
+!requirements.txt
+!*.py
+!README.md
+!README*.md
