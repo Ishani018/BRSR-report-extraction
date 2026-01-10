@@ -22,176 +22,162 @@ from config.config import (
 )
 
 from .nse_downloader import NSEDownloader, get_nse_report
-from .google_search_downloader import GoogleSearchDownloader, get_google_search_report
-from .missing_reports_logger import MissingReportsLogger
 
 logger = logging.getLogger(__name__)
 
 
-def format_filename(company_name: str, year: str, is_standalone: bool = True) -> str:
+def format_filename(company_name: str, year: str, is_standalone: bool = True, symbol: Optional[str] = None, serial_number: Optional[int] = None) -> str:
     """
     Format filename for downloaded BRSR report.
+    Format: {SerialNumber}_{SYMBOL}_BRSR_{Year}.pdf
+    Uses company SYMBOL from Excel/CSV if available, otherwise uses cleaned company name.
+    Matches the expected naming convention from the Excel/CSV file.
     
     Args:
-        company_name: Company name
+        company_name: Company name (used as fallback if symbol not available)
         year: Financial year (e.g., '2022-23')
         is_standalone: True if standalone BRSR, False if annual report
+        symbol: Optional company symbol from Excel/CSV (e.g., 'RELIANCE', 'TCS')
+        serial_number: Optional serial number from Excel/CSV (placed at the front)
         
     Returns:
-        Formatted filename
+        Formatted filename: {SerialNumber}_{SYMBOL}_BRSR_{Year}.pdf or {SerialNumber}_{SYMBOL}_AnnualReport_{Year}.pdf
+        If symbol not available: {SerialNumber}_{CompanyName}_BRSR_{Year}.pdf
+        If serial_number not available: {SYMBOL}_BRSR_{Year}.pdf
     """
-    # Clean company name for filename (remove special characters)
-    clean_name = company_name.replace('/', '_').replace('\\', '_').replace(':', '_')
-    clean_name = clean_name.replace('*', '').replace('?', '').replace('"', '').replace('<', '').replace('>', '').replace('|', '')
-    clean_name = clean_name.strip()
+    # Format serial number with leading zeros (3 digits for up to 999, adjust as needed)
+    serial_prefix = ""
+    if serial_number is not None:
+        # Format with leading zeros (e.g., 001, 002, 010, 100)
+        serial_prefix = f"{serial_number:03d}_"  # 3-digit format with leading zeros
     
-    if is_standalone:
-        prefix = "BRSR"
-    else:
-        prefix = "AnnualReport"
+    # Use symbol if available (preferred - matches CSV/Excel format)
+    if symbol and symbol.strip():
+        symbol = symbol.strip().upper()  # Normalize symbol to uppercase
+        if is_standalone:
+            filename = f"{serial_prefix}{symbol}_BRSR_{year}.pdf"
+        else:
+            filename = f"{serial_prefix}{symbol}_AnnualReport_{year}.pdf"
+        return filename
     
-    filename = f"{clean_name}_{prefix}_{year}.pdf"
-    return filename
+    # Fallback to company name if symbol not available
+    try:
+        from pipeline.file_naming import clean_company_name
+        
+        # Use the standardized naming convention
+        cleaned_name = clean_company_name(company_name)
+        
+        if is_standalone:
+            filename = f"{serial_prefix}{cleaned_name}_BRSR_{year}.pdf"
+        else:
+            filename = f"{serial_prefix}{cleaned_name}_AnnualReport_{year}.pdf"
+        
+        return filename
+    except ImportError:
+        # Fallback if module not available
+        import re
+        # Clean company name for filename (remove special characters)
+        clean_name = company_name.replace('/', '_').replace('\\', '_').replace(':', '_')
+        clean_name = clean_name.replace('*', '').replace('?', '').replace('"', '').replace('<', '').replace('>', '').replace('|', '')
+        clean_name = clean_name.strip()
+        clean_name = re.sub(r'\s+', '_', clean_name)  # Replace spaces with underscores
+        
+        if is_standalone:
+            prefix = "BRSR"
+        else:
+            prefix = "AnnualReport"
+        
+        filename = f"{serial_prefix}{clean_name}_{prefix}_{year}.pdf"
+        return filename
 
 
 def download_brsr_report(
     company_name: str,
     symbol: str,
-    website: str,
     year: str,
-    output_dir: Path,
-    nse_downloader: Optional[NSEDownloader] = None,
-    google_downloader: Optional[GoogleSearchDownloader] = None,
-    missing_logger: Optional[MissingReportsLogger] = None
+    output_base_dir: Path,
+    serial_number: Optional[int] = None,
+    nse_downloader: Optional[NSEDownloader] = None
 ) -> Dict:
     """
-    Download BRSR report using tiered strategy:
-    - Tier 1: NSE API
-    - Tier 2: Google Search
-    - Tier 3: Log to missing_reports.json
+    Download BRSR report from NSE API only (no fallbacks).
+    Structure: {output_base_dir}/{company_folder}/{year}/{filename}.pdf
+    Skips download if NSE API fails (no fallbacks).
     
     Args:
-        company_name: Company name
-        symbol: NSE symbol
-        website: Company website
+        company_name: Company name (used for folder name)
+        symbol: NSE symbol (required for download)
         year: Financial year (e.g., '2022-23')
-        output_dir: Directory to save downloaded PDF
+        output_base_dir: Base directory for downloads
+        serial_number: Optional serial number for filename
         nse_downloader: Optional NSE downloader instance (creates new if None)
-        google_downloader: Optional Google downloader instance (creates new if None)
-        missing_logger: Optional missing reports logger (creates new if None)
         
     Returns:
         Dictionary with download status:
         {
             'success': bool,
-            'tier': 'tier1' | 'tier2' | None,
             'file_path': str or None,
-            'error': str or None,
-            'is_standalone': bool  # True if standalone BRSR, False if annual report
+            'error': str or None
         }
     """
     if nse_downloader is None:
         nse_downloader = NSEDownloader(rate_limit_delay=NSE_RATE_LIMIT_DELAY)
     
-    if google_downloader is None:
-        google_downloader = GoogleSearchDownloader()
+    # Create company folder structure: {company}/{year}/
+    # Use serial number + symbol for company folder name if serial_number available
+    from pipeline.file_naming import clean_company_name
+    if serial_number is not None:
+        company_folder = f"{serial_number:03d}_{symbol.upper()}"
+    else:
+        company_folder = symbol.upper() if symbol else clean_company_name(company_name)
     
-    if missing_logger is None:
-        missing_logger = MissingReportsLogger()
-    
-    # Create output directory for this year
-    year_dir = Path(output_dir) / year
+    company_dir = Path(output_base_dir) / company_folder
+    year_dir = company_dir / year
     year_dir.mkdir(parents=True, exist_ok=True)
     
-    tier_1_error = None
-    tier_2_error = None
+    # Only try NSE API - skip if symbol not available or fails
+    if not symbol or not symbol.strip():
+        error_msg = "No NSE symbol available"
+        logger.info(f"✗ Skipping {company_name} ({year}): {error_msg}")
+        return {
+            'success': False,
+            'file_path': None,
+            'error': error_msg
+        }
     
-    # Tier 1: Try NSE API (if symbol is available)
-    if symbol:
-        logger.debug(f"Tier 1: Attempting NSE API download for {company_name} ({symbol}) - {year}")
-        output_path = year_dir / format_filename(company_name, year, is_standalone=True)
-        
-        # Check if already downloaded
-        if output_path.exists():
-            logger.info(f"✓ Already downloaded: {output_path.name}")
-            return {
-                'success': True,
-                'tier': 'tier1',
-                'file_path': str(output_path),
-                'error': None,
-                'is_standalone': True
-            }
-        
-        success, error = nse_downloader.download(symbol, output_path, year)
-        
-        if success:
-            logger.info(f"✓ Tier 1 success: {company_name} ({year})")
-            return {
-                'success': True,
-                'tier': 'tier1',
-                'file_path': str(output_path),
-                'error': None,
-                'is_standalone': True
-            }
-        else:
-            tier_1_error = error or "No results from NSE API"
-            logger.info(f"✗ Tier 1 failed: {company_name} ({year}) - {tier_1_error}")
+    # Format filename exactly as specified in CSV
+    filename = format_filename(company_name, year, is_standalone=True, symbol=symbol, serial_number=serial_number)
+    output_path = year_dir / filename
+    
+    # Check if already downloaded
+    if output_path.exists():
+        logger.info(f"✓ Already downloaded: {company_folder}/{year}/{filename}")
+        return {
+            'success': True,
+            'file_path': str(output_path),
+            'error': None
+        }
+    
+    # Attempt NSE API download
+    logger.debug(f"Attempting NSE API download for {company_name} ({symbol}) - {year}")
+    success, error = nse_downloader.download(symbol, output_path, year)
+    
+    if success:
+        logger.info(f"✓ Successfully downloaded: {company_folder}/{year}/{filename}")
+        return {
+            'success': True,
+            'file_path': str(output_path),
+            'error': None
+        }
     else:
-        tier_1_error = "No NSE symbol available"
-        logger.debug(f"Skipping Tier 1 for {company_name}: {tier_1_error}")
-    
-    # Tier 2: Try Google Search (if website is available)
-    if website:
-        logger.debug(f"Tier 2: Attempting Google Search for {company_name} - {year}")
-        output_path = year_dir / format_filename(company_name, year, is_standalone=True)
-        
-        # Check if already downloaded
-        if output_path.exists():
-            logger.info(f"✓ Already downloaded: {output_path.name}")
-            return {
-                'success': True,
-                'tier': 'tier2',
-                'file_path': str(output_path),
-                'error': None,
-                'is_standalone': True
-            }
-        
-        success, error = google_downloader.download(company_name, website, year, output_path)
-        
-        if success:
-            logger.info(f"✓ Tier 2 success: {company_name} ({year})")
-            return {
-                'success': True,
-                'tier': 'tier2',
-                'file_path': str(output_path),
-                'error': None,
-                'is_standalone': True
-            }
-        else:
-            tier_2_error = error or "No results from Google Search"
-            logger.info(f"✗ Tier 2 failed: {company_name} ({year}) - {tier_2_error}")
-    else:
-        tier_2_error = "No website available"
-        logger.debug(f"Skipping Tier 2 for {company_name}: {tier_2_error}")
-    
-    # Tier 3: Log to missing_reports.json
-    logger.info(f"✗ All tiers failed: {company_name} ({year}) - Logging to missing_reports.json")
-    missing_logger.add_entry(
-        company_name=company_name,
-        symbol=symbol or '',
-        website=website or '',
-        year=year,
-        tier_1_error=tier_1_error,
-        tier_2_error=tier_2_error
-    )
-    
-    return {
-        'success': False,
-        'tier': None,
-        'file_path': None,
-        'error': f"Tier 1: {tier_1_error}, Tier 2: {tier_2_error}",
-        'is_standalone': None
-    }
+        error_msg = error or "No results from NSE API"
+        logger.info(f"✗ Failed to download {company_name} ({year}): {error_msg}")
+        # Skip if fails - no fallbacks
+        return {
+            'success': False,
+            'file_path': None,
+            'error': error_msg
+        }
 
 
 class DownloadManager:
@@ -225,81 +211,69 @@ class DownloadManager:
         self.checkpoint_file.parent.mkdir(parents=True, exist_ok=True)
         self.status_file.parent.mkdir(parents=True, exist_ok=True)
         
-        # Initialize downloaders
+        # Initialize NSE downloader only (no fallbacks)
         self.nse_downloader = NSEDownloader(rate_limit_delay=NSE_RATE_LIMIT_DELAY)
-        self.google_downloader = GoogleSearchDownloader()
-        self.missing_logger = MissingReportsLogger()
         
-        # Status tracking
-        self.status = self.load_status()
-        self.checkpoint = self.load_checkpoint()
+        # Status CSV tracking (replaces JSON status)
+        self.status_csv_path = STATUS_DIR / "download_status.csv"
+        self.status_csv_path.parent.mkdir(parents=True, exist_ok=True)
+        self.status_df = self.load_status_csv()
         
-    def load_checkpoint(self) -> Dict:
-        """Load checkpoint from JSON file."""
-        if self.checkpoint_file.exists():
+    def load_status_csv(self) -> pd.DataFrame:
+        """Load status from CSV file or create new DataFrame."""
+        if self.status_csv_path.exists():
             try:
-                with open(self.checkpoint_file, 'r', encoding='utf-8') as f:
-                    return json.load(f)
+                df = pd.read_csv(self.status_csv_path)
+                logger.info(f"Loaded status from {self.status_csv_path} ({len(df)} rows)")
+                return df
             except Exception as e:
-                logger.error(f"Error loading checkpoint: {e}")
-                return {}
-        return {}
+                logger.error(f"Error loading status CSV: {e}")
+                return pd.DataFrame()
+        else:
+            logger.info("Creating new status CSV")
+            return pd.DataFrame()
     
-    def save_checkpoint(self, checkpoint: Dict) -> None:
-        """Save checkpoint to JSON file."""
+    def save_status_csv(self) -> None:
+        """Save status to CSV file."""
         try:
-            checkpoint['last_updated'] = datetime.now().isoformat()
-            with open(self.checkpoint_file, 'w', encoding='utf-8') as f:
-                json.dump(checkpoint, f, indent=2, ensure_ascii=False)
+            self.status_df.to_csv(self.status_csv_path, index=False)
+            logger.debug(f"Saved status to {self.status_csv_path} ({len(self.status_df)} rows)")
         except Exception as e:
-            logger.error(f"Error saving checkpoint: {e}")
+            logger.error(f"Error saving status CSV: {e}")
     
-    def load_status(self) -> Dict:
-        """Load status from JSON file."""
-        if self.status_file.exists():
-            try:
-                with open(self.status_file, 'r', encoding='utf-8') as f:
-                    return json.load(f)
-            except Exception as e:
-                logger.error(f"Error loading status: {e}")
-                return {'downloads': []}
-        return {'downloads': []}
-    
-    def save_status(self) -> None:
-        """Save status to JSON file."""
-        try:
-            self.status['last_updated'] = datetime.now().isoformat()
-            with open(self.status_file, 'w', encoding='utf-8') as f:
-                json.dump(self.status, f, indent=2, ensure_ascii=False)
-        except Exception as e:
-            logger.error(f"Error saving status: {e}")
-    
-    def is_downloaded(self, company_name: str, year: str) -> bool:
+    def is_downloaded(self, symbol: str, year: str, serial_number: Optional[int] = None) -> bool:
         """
         Check if report is already downloaded.
+        Uses company-based folder structure: {company}/{year}/
         
         Args:
-            company_name: Company name
+            symbol: Company symbol
             year: Financial year
+            serial_number: Optional serial number
             
         Returns:
             True if already downloaded
         """
-        # Check status file
-        for download in self.status.get('downloads', []):
-            if (download.get('company_name') == company_name and
-                download.get('year') == year and
-                download.get('success') == True):
+        # Check status CSV
+        if not self.status_df.empty:
+            mask = (self.status_df['symbol'] == symbol) & (self.status_df['year'] == year)
+            if serial_number is not None:
+                mask = mask & (self.status_df['serial_number'] == serial_number)
+            downloaded = self.status_df[mask]
+            if not downloaded.empty and downloaded.iloc[0]['status'] == 'Downloaded':
                 return True
         
-        # Check if file exists
-        year_dir = self.output_base_dir / year
-        if year_dir.exists():
-            # Check for both standalone and annual report formats
-            standalone_file = year_dir / format_filename(company_name, year, is_standalone=True)
-            annual_file = year_dir / format_filename(company_name, year, is_standalone=False)
-            
-            if standalone_file.exists() or annual_file.exists():
+        # Check if file exists in company/year folder structure
+        if serial_number is not None:
+            company_folder = f"{serial_number:03d}_{symbol.upper()}"
+        else:
+            company_folder = symbol.upper()
+        
+        company_dir = self.output_base_dir / company_folder / year
+        if company_dir.exists():
+            # Check if any PDF exists in the year folder
+            pdf_files = list(company_dir.glob("*.pdf"))
+            if pdf_files:
                 return True
         
         return False
@@ -308,17 +282,18 @@ class DownloadManager:
         self,
         company_name: str,
         symbol: str,
-        website: str,
-        year: str
+        year: str,
+        serial_number: Optional[int] = None
     ) -> Dict:
         """
         Download BRSR report for single company/year.
+        Only uses NSE API - no fallbacks.
         
         Args:
             company_name: Company name
             symbol: NSE symbol
-            website: Company website
             year: Financial year
+            serial_number: Optional serial number from Excel/CSV
             
         Returns:
             Download status dictionary
@@ -326,24 +301,50 @@ class DownloadManager:
         result = download_brsr_report(
             company_name=company_name,
             symbol=symbol,
-            website=website,
             year=year,
-            output_dir=self.output_base_dir,
-            nse_downloader=self.nse_downloader,
-            google_downloader=self.google_downloader,
-            missing_logger=self.missing_logger
+            output_base_dir=self.output_base_dir,
+            serial_number=serial_number,
+            nse_downloader=self.nse_downloader
         )
         
         # Add metadata
         result['company_name'] = company_name
         result['symbol'] = symbol
-        result['website'] = website
         result['year'] = year
+        result['serial_number'] = serial_number
         result['timestamp'] = datetime.now().isoformat()
+        result['status'] = 'Downloaded' if result['success'] else 'Failed'
         
-        # Update status
-        self.status.setdefault('downloads', []).append(result)
-        self.save_status()
+        # Update status CSV DataFrame
+        new_row = {
+            'serial_number': serial_number or '',
+            'company_name': company_name,
+            'symbol': symbol,
+            'year': year,
+            'status': result['status'],
+            'error': result.get('error', ''),
+            'file_path': result.get('file_path', ''),
+            'timestamp': result['timestamp']
+        }
+        
+        # Add or update row in DataFrame
+        if self.status_df.empty:
+            self.status_df = pd.DataFrame([new_row])
+        else:
+            # Check if row exists
+            mask = (self.status_df['symbol'] == symbol) & (self.status_df['year'] == year)
+            if serial_number is not None:
+                mask = mask & (self.status_df['serial_number'] == serial_number)
+            
+            existing = self.status_df[mask]
+            if not existing.empty:
+                # Update existing row
+                idx = existing.index[0]
+                for key, value in new_row.items():
+                    self.status_df.at[idx, key] = value
+            else:
+                # Add new row
+                self.status_df = pd.concat([self.status_df, pd.DataFrame([new_row])], ignore_index=True)
         
         return result
     
@@ -357,7 +358,7 @@ class DownloadManager:
         Batch download BRSR reports for multiple companies and years.
         
         Args:
-            companies_df: DataFrame with company information (columns: company_name, symbol, website)
+            companies_df: DataFrame with company information (must have: company_name, symbol, serial_number)
             years: List of financial years (defaults to config years)
             resume: If True, skip already downloaded files
             
@@ -372,24 +373,37 @@ class DownloadManager:
         # Prepare download tasks
         tasks = []
         for _, row in companies_df.iterrows():
-            company_name = row.get('company_name', '')
+            company_name = str(row.get('company_name', '')).strip()
             symbol = str(row.get('symbol', '')).strip() if pd.notna(row.get('symbol')) else ''
-            website = str(row.get('website', '')).strip() if pd.notna(row.get('website')) else ''
             
-            if not company_name:
+            # Get serial number (prefer from Excel, fallback to row_index)
+            serial_number = None
+            if pd.notna(row.get('serial_number')):
+                try:
+                    serial_number = int(row.get('serial_number'))
+                except (ValueError, TypeError):
+                    pass
+            if serial_number is None and pd.notna(row.get('row_index')):
+                try:
+                    serial_number = int(row.get('row_index'))
+                except (ValueError, TypeError):
+                    pass
+            
+            if not company_name or not symbol:
+                logger.warning(f"Skipping row with missing company_name or symbol: {row}")
                 continue
             
             for year in years:
-                # Check if already downloaded
-                if resume and self.is_downloaded(company_name, year):
+                # Check if already downloaded (uses company-based folder structure)
+                if resume and self.is_downloaded(symbol, year, serial_number=serial_number):
                     logger.debug(f"Skipping {company_name} ({year}) - already downloaded")
                     continue
                 
                 tasks.append({
                     'company_name': company_name,
                     'symbol': symbol,
-                    'website': website,
-                    'year': year
+                    'year': year,
+                    'serial_number': serial_number
                 })
         
         logger.info(f"Prepared {len(tasks)} download tasks")
@@ -401,14 +415,14 @@ class DownloadManager:
         
         # Use ThreadPoolExecutor for parallel processing
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-            # Submit all tasks
+            # Submit all tasks (no website parameter needed - only NSE API)
             future_to_task = {
                 executor.submit(
                     self.download_single,
                     task['company_name'],
                     task['symbol'],
-                    task['website'],
-                    task['year']
+                    task['year'],
+                    task.get('serial_number')  # Pass serial_number if available
                 ): task
                 for task in tasks
             }
@@ -423,16 +437,49 @@ class DownloadManager:
                         
                         if result['success']:
                             successful += 1
-                            pbar.set_postfix({'success': successful, 'failed': failed, 'tier': result.get('tier', 'N/A')})
                         else:
                             failed += 1
-                            pbar.set_postfix({'success': successful, 'failed': failed})
+                            # Add failed result to status CSV
+                            new_row = {
+                                'serial_number': task.get('serial_number') or '',
+                                'company_name': task['company_name'],
+                                'symbol': task['symbol'],
+                                'year': task['year'],
+                                'status': 'Failed',
+                                'error': result.get('error', 'Unknown error'),
+                                'file_path': '',
+                                'timestamp': datetime.now().isoformat()
+                            }
+                            if self.status_df.empty:
+                                self.status_df = pd.DataFrame([new_row])
+                            else:
+                                self.status_df = pd.concat([self.status_df, pd.DataFrame([new_row])], ignore_index=True)
+                        
+                        pbar.set_postfix({'success': successful, 'failed': failed})
                     except Exception as e:
                         logger.error(f"Error processing {task['company_name']} ({task['year']}): {e}", exc_info=True)
                         failed += 1
+                        # Add failed result to status CSV
+                        new_row = {
+                            'serial_number': task.get('serial_number') or '',
+                            'company_name': task['company_name'],
+                            'symbol': task['symbol'],
+                            'year': task['year'],
+                            'status': 'Failed',
+                            'error': str(e),
+                            'file_path': '',
+                            'timestamp': datetime.now().isoformat()
+                        }
+                        if self.status_df.empty:
+                            self.status_df = pd.DataFrame([new_row])
+                        else:
+                            self.status_df = pd.concat([self.status_df, pd.DataFrame([new_row])], ignore_index=True)
                         pbar.set_postfix({'success': successful, 'failed': failed})
                     finally:
                         pbar.update(1)
+        
+        # Save final status CSV
+        self.save_status_csv()
         
         # Generate summary
         summary = {
@@ -440,14 +487,9 @@ class DownloadManager:
             'successful': successful,
             'failed': failed,
             'success_rate': (successful / len(tasks) * 100) if tasks else 0,
-            'tier_breakdown': {},
-            'timestamp': datetime.now().isoformat()
+            'timestamp': datetime.now().isoformat(),
+            'status_csv_path': str(self.status_csv_path)
         }
-        
-        # Calculate tier breakdown
-        for result in results:
-            tier = result.get('tier', 'none')
-            summary['tier_breakdown'][tier] = summary['tier_breakdown'].get(tier, 0) + 1
         
         logger.info(f"\n{'='*80}")
         logger.info("BATCH DOWNLOAD SUMMARY")
@@ -456,12 +498,7 @@ class DownloadManager:
         logger.info(f"Successful: {summary['successful']}")
         logger.info(f"Failed: {summary['failed']}")
         logger.info(f"Success rate: {summary['success_rate']:.1f}%")
-        logger.info(f"Tier breakdown: {summary['tier_breakdown']}")
-        
-        # Save summary to status  
-        self.status['last_summary'] = summary
-        self.status['downloads'].extend(results)
-        self.save_status()
+        logger.info(f"Status CSV saved to: {summary['status_csv_path']}")
         
         return summary
 

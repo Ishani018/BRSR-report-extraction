@@ -52,18 +52,19 @@ BRSR_FINANCIAL_YEARS = ['2022-23', '2023-24', '2024-25']
 
 # NSE API Settings
 NSE_BASE_URL = "https://www.nseindia.com"
-# Note: Preserve typos 'bussiness' and 'sustainabilitiy' - these are native to NSE API
-NSE_API_ENDPOINT = "https://www.nseindia.com/api/corporate-filings-bussiness-sustainabilitiy-reports"
-NSE_ARCHIVES_BASE_URL = "https://nsearchives.nseindia.com/corporate"
+# Using Annual Reports API (stable and official source for BRSR reports)
+NSE_API_ENDPOINT = "https://www.nseindia.com/api/annual-reports"
+NSE_ARCHIVES_BASE_URL = "https://nsearchives.nseindia.com/annual_reports"
 NSE_API_TIMEOUT = 15  # seconds for API call
 NSE_DOWNLOAD_TIMEOUT = 30  # seconds for PDF download
-NSE_RATE_LIMIT_DELAY = 1.5  # seconds between requests to avoid 403 Forbidden
+NSE_RATE_LIMIT_DELAY = 2.0  # seconds between requests to avoid 403 Forbidden (increased for stability)
 NSE_MAX_CONCURRENT = 8  # max concurrent downloads for NSE API
 
 # NSE API Headers (mimic browser to avoid 403 Forbidden)
+# Critical: Referer must match the Annual Reports page to avoid 403 errors
 NSE_HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36',
-    'Referer': 'https://www.nseindia.com/',
+    'Referer': 'https://www.nseindia.com/companies-listing/corporate-filings-annual-reports',
     'Accept': 'application/json'
 }
 

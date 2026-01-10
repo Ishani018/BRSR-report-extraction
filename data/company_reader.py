@@ -90,6 +90,20 @@ class CompanyReader:
             isin = str(row.get('ISIN Code', '')).strip() if pd.notna(row.get('ISIN Code')) else ''
             series = str(row.get('Series', '')).strip() if pd.notna(row.get('Series')) else ''
             
+            # Try to get serial number from various possible column names
+            serial_number = None
+            for col_name in ['Serial Number', 'Serial No', 'S.No', 'S No', 'Sr No', 'Sr. No', 'Serial', 'SN', 'S.N']:
+                if col_name in row and pd.notna(row.get(col_name)):
+                    try:
+                        serial_number = int(row.get(col_name))
+                        break
+                    except (ValueError, TypeError):
+                        pass
+            
+            # If no serial number column found, use row index (1-based)
+            if serial_number is None:
+                serial_number = idx + 1  # 1-based index
+            
             # Skip rows without company name or symbol
             if not company_name or not symbol:
                 continue
@@ -100,7 +114,8 @@ class CompanyReader:
                 'industry': industry,
                 'isin': isin,
                 'series': series,
-                'row_index': idx + 1  # 1-based index
+                'row_index': idx + 1,  # 1-based index (Excel row)
+                'serial_number': serial_number  # Serial number from Excel or row_index
             }
             
             companies.append(company)
