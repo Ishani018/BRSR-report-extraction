@@ -14,6 +14,8 @@ from detect_pdf_type import detect_pdf_type, get_pdf_info
 from extract_text import extract_text
 from clean_text import clean_pages
 from export_outputs import export_to_docx, create_output_directory
+from section_boundary_detector import SectionBoundaryDetector
+from section_content_extractor import extract_sections_from_pdf
 
 
 def setup_logging(log_file: Path = None) -> None:
@@ -191,6 +193,21 @@ def process_single_pdf(pdf_path: Path) -> Dict[str, Any]:
         json_path = output_path / "metadata.json"
         with open(json_path, 'w', encoding='utf-8') as f:
             json.dump(metadata, f, indent=2, ensure_ascii=False)
+        
+        # Step 6: Extract MD&A and Letter to Stakeholders sections
+        logger.info("Step 6/6: Extracting narrative sections...")
+        try:
+            section_files = extract_sections_from_pdf(
+                pdf_path=pdf_path,
+                pages=pages,  # Use original pages with extraction stats
+                output_dir=output_path / "sections",
+                company_name=company_name,
+                year=year
+            )
+            logger.info(f"  Extracted {len(section_files)} section files")
+        except Exception as e:
+            logger.warning(f"  Section extraction failed: {e}")
+            section_files = {}
         
         result["output_directory"] = str(output_path)
         result["docx"] = str(docx_path)
