@@ -46,3 +46,66 @@ MAX_TABLE_EXPORT_SIZE = 1000  # Maximum rows per table CSV
 # Logging Settings
 LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 LOG_LEVEL = "INFO"
+
+# BRSR-Specific Settings
+BRSR_FINANCIAL_YEARS = ['2022-23', '2023-24', '2024-25']
+
+# NSE API Settings
+NSE_BASE_URL = "https://www.nseindia.com"
+# Note: Preserve typos 'bussiness' and 'sustainabilitiy' - these are native to NSE API
+NSE_API_ENDPOINT = "https://www.nseindia.com/api/corporate-filings-bussiness-sustainabilitiy-reports"
+NSE_ARCHIVES_BASE_URL = "https://nsearchives.nseindia.com/corporate"
+NSE_API_TIMEOUT = 15  # seconds for API call
+NSE_DOWNLOAD_TIMEOUT = 30  # seconds for PDF download
+NSE_RATE_LIMIT_DELAY = 1.5  # seconds between requests to avoid 403 Forbidden
+NSE_MAX_CONCURRENT = 8  # max concurrent downloads for NSE API
+
+# NSE API Headers (mimic browser to avoid 403 Forbidden)
+NSE_HEADERS = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36',
+    'Referer': 'https://www.nseindia.com/',
+    'Accept': 'application/json'
+}
+
+# Google Search Settings (optional - for Tier 2 fallback)
+GOOGLE_SEARCH_API_KEY = os.getenv('GOOGLE_SEARCH_API_KEY', '')  # Optional: Google Custom Search API key
+GOOGLE_SEARCH_ENGINE_ID = os.getenv('GOOGLE_SEARCH_ENGINE_ID', '')  # Optional: Custom Search Engine ID
+GOOGLE_SEARCH_TIMEOUT = 10  # seconds
+GOOGLE_SEARCH_MAX_RESULTS = 10  # max results to check
+
+# Download Settings
+DOWNLOAD_BASE_DIR = BASE_DIR.parent / "brsr_reports" / "downloads"
+OUTPUT_BASE_DIR = BASE_DIR.parent / "brsr_reports" / "outputs"
+STATUS_DIR = BASE_DIR.parent / "brsr_reports" / "status"
+MISSING_REPORTS_FILE = STATUS_DIR / "missing_reports.json"
+DOWNLOAD_CHECKPOINT_FILE = STATUS_DIR / "download_checkpoint.json"
+DOWNLOAD_STATUS_FILE = STATUS_DIR / "download_status.json"
+
+# Create BRSR directories if they don't exist
+DOWNLOAD_BASE_DIR.mkdir(parents=True, exist_ok=True)
+OUTPUT_BASE_DIR.mkdir(parents=True, exist_ok=True)
+STATUS_DIR.mkdir(parents=True, exist_ok=True)
+
+# BRSR Detection Settings
+BRSR_STANDALONE_MAX_PAGES = 50  # Documents <= 50 pages are likely standalone BRSR
+BRSR_EMBEDDED_MIN_PAGES = 100  # Documents >= 100 pages likely have embedded BRSR
+BRSR_CONTENT_THRESHOLD = 0.3  # Minimum fraction of BRSR-related content to classify as BRSR-focused
+
+# BRSR Keywords for detection
+BRSR_KEYWORDS = [
+    "Business Responsibility and Sustainability Report",
+    "BRSR",
+    "Business Responsibility Report",
+    "BRR",
+    "Business Responsibility",
+    "Sustainability Report",
+    "ESG Report",
+    "Corporate Social Responsibility",
+    "CSR Report",
+    "Sustainability"
+]
+
+# File Naming Conventions
+BRSR_STANDALONE_PREFIX = "BRSR"
+BRSR_EMBEDDED_PREFIX = "AnnualReport"
+BRSR_FROM_ANNUAL_SUFFIX = "from_AnnualReport"

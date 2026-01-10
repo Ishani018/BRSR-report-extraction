@@ -10,6 +10,9 @@ class SectionType(Enum):
     """Enumeration of supported section types."""
     MDNA = "mdna"
     LETTER_TO_STAKEHOLDERS = "letter_to_stakeholders"
+    BRSR = "brsr"
+    BRSR_STANDALONE = "brsr_standalone"
+    BRSR_EMBEDDED = "brsr_embedded"
     UNKNOWN = "unknown"
 
 
@@ -114,6 +117,34 @@ SECTION_KEYWORDS = {
         "letter from the ceo",
         "dear stakeholders",
         "dear shareholders"
+    ],
+    SectionType.BRSR: [
+        "business responsibility and sustainability report",
+        "business responsibility and sustainability",
+        "brsr",
+        "business responsibility report",
+        "brr",
+        "business responsibility",
+        "sustainability report",
+        "esg report",
+        "environmental social governance",
+        "corporate social responsibility",
+        "csr report",
+        "csr",
+        "sustainability"
+    ],
+    SectionType.BRSR_STANDALONE: [
+        "business responsibility and sustainability report",
+        "brsr",
+        "business responsibility report",
+        "sustainability report"
+    ],
+    SectionType.BRSR_EMBEDDED: [
+        "business responsibility and sustainability",
+        "business responsibility",
+        "sustainability",
+        "esg",
+        "corporate social responsibility"
     ]
 }
 

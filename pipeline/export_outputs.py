@@ -12,27 +12,54 @@ from docx.shared import Pt, Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 
 from pipeline.extract_text import PageText
-from config.config import OUTPUT_DIR
+from config.config import OUTPUT_DIR, OUTPUT_BASE_DIR, BRSR_FINANCIAL_YEARS
+from pipeline.file_naming import (
+    clean_company_name,
+    format_brsr_output_filename,
+    create_output_path
+)
 
 logger = logging.getLogger(__name__)
 
 
-def create_output_directory(company_name: str, year: str) -> Path:
+def create_output_directory(company_name: str, year: str, brsr_mode: bool = False) -> Path:
     """
     Create output directory structure for a company/year.
     
     Args:
         company_name: Name of the company
         year: Report year
+        brsr_mode: If True, use BRSR directory structure (outputs/{year}/{CompanyName}/)
         
     Returns:
         Path to the output directory
     """
-    output_path = OUTPUT_DIR / company_name / year
+    if brsr_mode:
+        # BRSR structure: outputs/{year}/{CompanyName}/
+        cleaned_name = clean_company_name(company_name)
+        output_path = OUTPUT_BASE_DIR / year / cleaned_name
+    else:
+        # Original structure: outputs/{CompanyName}/{year}/
+        output_path = OUTPUT_DIR / company_name / year
+    
     output_path.mkdir(parents=True, exist_ok=True)
     
     logger.info(f"Created output directory: {output_path}")
     return output_path
+
+
+def create_brsr_output_directory(company_name: str, year: str) -> Path:
+    """
+    Create BRSR-specific output directory structure.
+    
+    Args:
+        company_name: Name of the company
+        year: Financial year (e.g., '2022-23')
+        
+    Returns:
+        Path to the output directory (outputs/{year}/{CompanyName}/)
+    """
+    return create_output_directory(company_name, year, brsr_mode=True)
 
 
 def export_to_docx(
@@ -100,6 +127,81 @@ def export_to_docx(
     doc.save(str(docx_path))
     
     logger.info(f"DOCX saved to: {docx_path}")
+    return docx_path
+
+
+def export_brsr_to_docx(
+    pages: List[PageText],
+    output_path: Path,
+    company_name: str,
+    year: str,
+    is_standalone: bool = True,
+    is_from_annual: bool = False
+) -> Path:
+    """
+    Export BRSR content to DOCX with standardized naming.
+    
+    Args:
+        pages: List of PageText objects
+        output_path: Directory to save the file
+        company_name: Company name
+        year: Financial year
+        is_standalone: True if standalone BRSR
+        is_from_annual: True if extracted from annual report
+        
+    Returns:
+        Path to the created DOCX file
+    """
+    logger.info(f"Exporting BRSR to DOCX: {company_name} {year}")
+    
+    # Create output directory if needed
+    output_path = Path(output_path)
+    output_path.mkdir(parents=True, exist_ok=True)
+    
+    # Format filename
+    filename = format_brsr_output_filename(
+        company_name, year, is_standalone, is_from_annual, 'docx'
+    )
+    docx_path = output_path / filename
+    
+    # Create document
+    doc = Document()
+    
+    # Set document title
+    title_text = f'{company_name} - BRSR {year}'
+    if is_from_annual:
+        title_text += ' (from Annual Report)'
+    
+    title = doc.add_heading(title_text, level=0)
+    title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    
+    # Add metadata
+    doc.add_paragraph(f"Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    doc.add_paragraph(f"Total Pages: {len(pages)}")
+    doc.add_paragraph(f"Type: {'Standalone BRSR' if is_standalone else 'Embedded BRSR'}")
+    doc.add_page_break()
+    
+    # Export page by page
+    for page in pages:
+        page_heading = doc.add_heading(f'Page {page.page_number}', level=2)
+        page_heading.style.font.size = Pt(12)
+        page_heading.style.font.bold = True
+        
+        if page.text.strip():
+            paragraphs = page.text.split('\n\n')
+            for para_text in paragraphs:
+                if para_text.strip():
+                    para = doc.add_paragraph(para_text.strip())
+                    para.style.font.size = Pt(10)
+                    para.style.font.name = 'Calibri'
+        else:
+            doc.add_paragraph("[No text on this page]")
+        
+        doc.add_paragraph()
+    
+    # Save document
+    doc.save(str(docx_path))
+    logger.info(f"BRSR DOCX saved to: {docx_path}")
     return docx_path
 
 

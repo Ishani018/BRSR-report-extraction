@@ -1,7 +1,15 @@
 # Add output and log directories to .gitignore
 outputs/
 logs/
-data/
+# BRSR reports directory (contains downloads and processed outputs)
+brsr_reports/
+
+# Exclude data files but allow Python source files in data/ directory
+data/*.xlsx
+data/*.csv
+data/*.json
+!data/*.py
+!data/__init__.py
 
 # Python cache
 __pycache__/
