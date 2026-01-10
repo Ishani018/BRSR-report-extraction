@@ -35,6 +35,8 @@ class CompanyReader:
         
         try:
             df = pd.read_excel(self.excel_path)
+            # Normalize column headers: strip whitespace to handle trailing spaces
+            df.columns = df.columns.str.strip()
             logger.info(f"Loaded {len(df)} rows from Excel file")
             return df
         except Exception as e:
@@ -104,12 +106,26 @@ class CompanyReader:
             if serial_number is None:
                 serial_number = idx + 1  # 1-based index
             
-            # Get naming convention from Excel/CSV (handle various column name formats)
+            # Get naming convention from Excel/CSV (exact extraction after header normalization)
             naming_convention = None
-            for col_name in ['NAMING CONVENTION', 'Naming Convention', 'Naming', 'Filename', 'File Name', 'Naming_Convention']:
-                if col_name in row and pd.notna(row.get(col_name)):
-                    naming_convention = str(row.get(col_name)).strip()
-                    if naming_convention:  # Only store if not empty
+            # After column normalization (strip()), find column with case-insensitive match
+            # Try various possible column names
+            possible_names = ['NAMING CONVENTION', 'Naming Convention', 'Naming', 'Filename', 'File Name', 'Naming_Convention']
+            for col_name_variant in possible_names:
+                # Find matching column (case-insensitive after normalization)
+                matching_col = None
+                for actual_col in row.index:
+                    if actual_col.upper() == col_name_variant.upper():
+                        matching_col = actual_col
+                        break
+                
+                if matching_col:
+                    value = row.get(matching_col)
+                    if pd.notna(value):
+                        naming_convention = str(value)
+                        # Only set to None if it's truly empty (all whitespace)
+                        if not naming_convention.strip():
+                            naming_convention = None
                         break
             
             # Skip rows without company name or symbol

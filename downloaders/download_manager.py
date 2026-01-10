@@ -149,10 +149,10 @@ def download_brsr_report(
     
     # Format filename: Use naming_convention from Excel if provided, otherwise use default format
     if naming_convention and naming_convention.strip():
-        # Use exact naming convention from Excel/CSV
-        filename = naming_convention.strip()
+        # Use exact naming convention from Excel/CSV - preserve as-is
+        filename = naming_convention
         
-        # Replace common placeholders if they exist (case-insensitive)
+        # Replace common placeholders if they exist (case-insensitive) - these are useful dynamic values
         # Replace {year}, {YEAR}, {Year} with actual year
         filename = re.sub(r'\{year\}', year, filename, flags=re.IGNORECASE)
         # Replace {symbol}, {SYMBOL}, {Symbol} with actual symbol
@@ -161,12 +161,19 @@ def download_brsr_report(
         if serial_number is not None:
             filename = re.sub(r'\{serial(_number)?\}', str(serial_number), filename, flags=re.IGNORECASE)
         
-        # Clean filename (remove invalid characters for file system)
-        filename = filename.replace('/', '_').replace('\\', '_').replace(':', '_')
-        filename = filename.replace('*', '').replace('?', '').replace('"', '').replace('<', '').replace('>', '').replace('|', '')
+        # ONLY remove strictly illegal filesystem characters to prevent crashes
+        # Do NOT replace with underscores - just remove illegal chars
+        # Illegal characters: / \ : * ? " < > |
+        illegal_chars = ['/', '\\', ':', '*', '?', '"', '<', '>', '|']
+        for char in illegal_chars:
+            filename = filename.replace(char, '')
+        
+        # Do NOT replace spaces with underscores - preserve internal spaces
+        # Do NOT change casing - preserve exact casing
+        # Strip ONLY leading/trailing whitespace (necessary for filesystem, but preserve internal spaces)
         filename = filename.strip()
         
-        # Ensure .pdf extension exists
+        # Ensure .pdf extension exists (case-insensitive check)
         if not filename.lower().endswith('.pdf'):
             filename = f"{filename}.pdf"
     else:
