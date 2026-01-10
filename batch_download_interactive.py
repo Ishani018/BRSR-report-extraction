@@ -96,32 +96,81 @@ def interactive_batch_download():
     print("\n" + "="*80)
     print("Batch Download Configuration")
     print("="*80)
+    print("\nHow batch processing works:")
+    print("  - Companies are processed in groups (batches)")
+    print("  - Each company needs reports for 3 years (2022-23, 2023-24, 2024-25)")
+    print("  - Batch 0 = first group, Batch 1 = second group, etc.")
+    print("")
+    
+    # Calculate total companies and show example
+    total_companies = len(companies_df)
+    estimated_batches = (total_companies + 9) // 10  # Estimate with batch_size=10
+    
+    print(f"Total companies to process: {total_companies}")
+    print(f"Example: With batch size 10, you'll have ~{estimated_batches} batches")
+    print("")
     
     # Get batch size
-    batch_size_input = input(f"Batch size (companies per batch) [default: 10]: ").strip()
+    print("1. BATCH SIZE: How many companies to process in each batch?")
+    print("   (e.g., 10 = process 10 companies at a time)")
+    batch_size_input = input(f"   Enter batch size [default: 10]: ").strip()
     batch_size = int(batch_size_input) if batch_size_input.isdigit() else 10
+    
+    # Calculate total batches with the chosen batch size
+    actual_total_batches = (total_companies + batch_size - 1) // batch_size
+    print(f"   → This will create approximately {actual_total_batches} batches")
+    print("")
     
     # Get starting batch
     suggested_start = last_batch_info['last_batch']
-    start_input = input(f"Start from batch [default: {suggested_start}]: ").strip()
+    print("2. START FROM BATCH: Which batch number do you want to start from?")
+    print(f"   (0 = first batch, {suggested_start} = suggested resume point, {actual_total_batches-1} = last batch)")
+    print(f"   Last processed: batch {suggested_start}")
+    start_input = input(f"   Enter starting batch number [default: {suggested_start}]: ").strip()
     start_from_batch = int(start_input) if start_input.isdigit() else suggested_start
     
+    if start_from_batch >= actual_total_batches:
+        print(f"   ⚠ Warning: Starting batch {start_from_batch} exceeds total batches ({actual_total_batches-1})")
+        max_batches = 0
+    else:
+        remaining_batches = actual_total_batches - start_from_batch
+        max_batches = remaining_batches
+        print(f"   → Will start from batch {start_from_batch}, {remaining_batches} batch(es) remaining")
+    print("")
+    
     # Get number of batches to process
-    num_batches_input = input(f"Number of batches to process [default: 1, 'all' for all remaining]: ").strip().lower()
+    print("3. NUMBER OF BATCHES: How many batches do you want to process?")
+    print("   (Enter a number like '5' to process 5 batches, or 'all' to process all remaining)")
+    if max_batches > 0:
+        print(f"   (Maximum available from batch {start_from_batch}: {max_batches} batch(es))")
+    num_batches_input = input(f"   Enter number of batches [default: 1, 'all' for all remaining]: ").strip().lower()
     if num_batches_input == 'all' or num_batches_input == '':
         num_batches = None
+        print(f"   → Will process all remaining batches")
     elif num_batches_input.isdigit():
         num_batches = int(num_batches_input)
+        if num_batches > max_batches and max_batches > 0:
+            print(f"   ⚠ Warning: Only {max_batches} batches available, limiting to that")
+            num_batches = max_batches
+        else:
+            print(f"   → Will process {num_batches} batch(es)")
     else:
         num_batches = 1
+        print(f"   → Will process 1 batch (default)")
     
     print("")
     print("="*80)
     print("Configuration Summary:")
-    print(f"  Batch size: {batch_size} companies per batch")
-    print(f"  Start from batch: {start_from_batch}")
-    print(f"  Number of batches: {num_batches if num_batches else 'All remaining'}")
-    print(f"  Financial years: {', '.join(BRSR_FINANCIAL_YEARS)}")
+    print(f"  📦 Batch size: {batch_size} companies per batch")
+    print(f"  🎯 Starting from: Batch {start_from_batch}")
+    if num_batches:
+        total_companies_in_batches = min(num_batches * batch_size, total_companies - (start_from_batch * batch_size))
+        print(f"  📊 Processing: {num_batches} batch(es) = ~{total_companies_in_batches} companies")
+    else:
+        total_companies_in_batches = total_companies - (start_from_batch * batch_size)
+        print(f"  📊 Processing: All remaining batches = ~{total_companies_in_batches} companies")
+    print(f"  📅 Financial years: {', '.join(BRSR_FINANCIAL_YEARS)}")
+    print(f"  📄 Total download tasks: ~{total_companies_in_batches * len(BRSR_FINANCIAL_YEARS)} PDFs")
     print("="*80)
     
     confirm = input("\nProceed with download? [y/N]: ").strip().lower()
