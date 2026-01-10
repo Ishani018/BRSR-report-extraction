@@ -104,6 +104,14 @@ class CompanyReader:
             if serial_number is None:
                 serial_number = idx + 1  # 1-based index
             
+            # Get naming convention from Excel/CSV (handle various column name formats)
+            naming_convention = None
+            for col_name in ['NAMING CONVENTION', 'Naming Convention', 'Naming', 'Filename', 'File Name', 'Naming_Convention']:
+                if col_name in row and pd.notna(row.get(col_name)):
+                    naming_convention = str(row.get(col_name)).strip()
+                    if naming_convention:  # Only store if not empty
+                        break
+            
             # Skip rows without company name or symbol
             if not company_name or not symbol:
                 continue
@@ -115,7 +123,8 @@ class CompanyReader:
                 'isin': isin,
                 'series': series,
                 'row_index': idx + 1,  # 1-based index (Excel row)
-                'serial_number': serial_number  # Serial number from Excel or row_index
+                'serial_number': serial_number,  # Serial number from Excel or row_index
+                'naming_convention': naming_convention  # Custom naming convention from Excel/CSV (None if not specified)
             }
             
             companies.append(company)

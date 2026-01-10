@@ -4,6 +4,7 @@ Download Manager - Orchestrates tiered download strategy for BRSR reports.
 import logging
 import json
 import time
+import re
 from pathlib import Path
 from typing import List, Dict, Optional, Tuple
 from datetime import datetime
@@ -96,6 +97,7 @@ def download_brsr_report(
     year: str,
     output_base_dir: Path,
     serial_number: Optional[int] = None,
+    naming_convention: Optional[str] = None,
     nse_downloader: Optional[NSEDownloader] = None
 ) -> Dict:
     """
@@ -109,6 +111,7 @@ def download_brsr_report(
         year: Financial year (e.g., '2022-23')
         output_base_dir: Base directory for downloads
         serial_number: Optional serial number for filename
+        naming_convention: Optional custom naming convention from Excel/CSV (exact match, may contain placeholders like {year}, {symbol}, {serial})
         nse_downloader: Optional NSE downloader instance (creates new if None)
         
     Returns:
@@ -144,8 +147,32 @@ def download_brsr_report(
             'error': error_msg
         }
     
-    # Format filename exactly as specified in CSV
-    filename = format_filename(company_name, year, is_standalone=True, symbol=symbol, serial_number=serial_number)
+    # Format filename: Use naming_convention from Excel if provided, otherwise use default format
+    if naming_convention and naming_convention.strip():
+        # Use exact naming convention from Excel/CSV
+        filename = naming_convention.strip()
+        
+        # Replace common placeholders if they exist (case-insensitive)
+        # Replace {year}, {YEAR}, {Year} with actual year
+        filename = re.sub(r'\{year\}', year, filename, flags=re.IGNORECASE)
+        # Replace {symbol}, {SYMBOL}, {Symbol} with actual symbol
+        filename = re.sub(r'\{symbol\}', symbol.upper(), filename, flags=re.IGNORECASE)
+        # Replace {serial}, {SERIAL}, {serial_number}, {SERIAL_NUMBER} with serial number if available
+        if serial_number is not None:
+            filename = re.sub(r'\{serial(_number)?\}', str(serial_number), filename, flags=re.IGNORECASE)
+        
+        # Clean filename (remove invalid characters for file system)
+        filename = filename.replace('/', '_').replace('\\', '_').replace(':', '_')
+        filename = filename.replace('*', '').replace('?', '').replace('"', '').replace('<', '').replace('>', '').replace('|', '')
+        filename = filename.strip()
+        
+        # Ensure .pdf extension exists
+        if not filename.lower().endswith('.pdf'):
+            filename = f"{filename}.pdf"
+    else:
+        # Fall back to default naming format
+        filename = format_filename(company_name, year, is_standalone=True, symbol=symbol, serial_number=serial_number)
+    
     output_path = year_dir / filename
     
     # Check if already downloaded
@@ -282,7 +309,8 @@ class DownloadManager:
         company_name: str,
         symbol: str,
         year: str,
-        serial_number: Optional[int] = None
+        serial_number: Optional[int] = None,
+        naming_convention: Optional[str] = None
     ) -> Dict:
         """
         Download BRSR report for single company/year.
@@ -293,6 +321,7 @@ class DownloadManager:
             symbol: NSE symbol
             year: Financial year
             serial_number: Optional serial number from Excel/CSV
+            naming_convention: Optional custom naming convention from Excel/CSV
             
         Returns:
             Download status dictionary
@@ -303,6 +332,7 @@ class DownloadManager:
             year=year,
             output_base_dir=self.output_base_dir,
             serial_number=serial_number,
+            naming_convention=naming_convention,
             nse_downloader=self.nse_downloader
         )
         
@@ -405,6 +435,13 @@ class DownloadManager:
                 except (ValueError, TypeError):
                     pass
             
+            # Get naming convention from Excel/CSV
+            naming_convention = None
+            if pd.notna(row.get('naming_convention')):
+                naming_convention = str(row.get('naming_convention')).strip()
+                if not naming_convention:  # Empty string means None
+                    naming_convention = None
+            
             if not company_name or not symbol:
                 logger.warning(f"Skipping row with missing company_name or symbol: {row}")
                 continue
@@ -421,7 +458,8 @@ class DownloadManager:
                     'company_name': company_name,
                     'symbol': symbol,
                     'year': year,
-                    'serial_number': serial_number
+                    'serial_number': serial_number,
+                    'naming_convention': naming_convention
                 })
             
             if company_tasks:  # Only add companies with pending downloads
@@ -430,6 +468,7 @@ class DownloadManager:
                     'company_name': company_name,
                     'symbol': symbol,
                     'serial_number': serial_number,
+                    'naming_convention': naming_convention,
                     'tasks': company_tasks
                 })
         
@@ -554,7 +593,8 @@ class DownloadManager:
                         task['company_name'],
                         task['symbol'],
                         task['year'],
-                        task.get('serial_number')
+                        task.get('serial_number'),
+                        task.get('naming_convention')
                     ): task
                     for task in batch_tasks
                 }
