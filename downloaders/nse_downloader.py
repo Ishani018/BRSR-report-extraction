@@ -131,8 +131,10 @@ def get_nse_report(symbol: str, output_path: Path, year: Optional[str] = None) -
                     data = data['records']
                     logger.debug(f"Found 'records' key, using nested data: {len(data) if isinstance(data, list) else 'N/A'}")
             
+            # The Annual Reports API returns a list of reports
+            # Use data[0] as the latest report (or filter by year if provided)
             if isinstance(data, list) and len(data) > 0:
-                # Filter by year if provided, otherwise get latest (first item)
+                # Filter by year if provided, otherwise get latest (first item - data[0])
                 report_data = None
                 
                 # Log available reports for debugging
@@ -227,21 +229,25 @@ def get_nse_report(symbol: str, output_path: Path, year: Optional[str] = None) -
                         import traceback
                         logger.debug(traceback.format_exc())
                 
-                # If no year filtering or no match found, use the latest (first) report
+                # If no year filtering or no match found, use the latest report (data[0])
+                # The Annual Reports API returns reports with latest first, so data[0] is the latest report
                 if report_data is None:
-                    report_data = data[0]
+                    report_data = data[0]  # Use first item as the latest report
                     if year:
-                        logger.warning(f"No report found for year {year}, using latest available report (index 0)")
+                        logger.warning(f"No report found for year {year}, using latest available report (data[0])")
                     else:
-                        logger.debug(f"No year specified, using latest report")
+                        logger.debug(f"No year specified, using latest report (data[0])")
                 
                 file_name = report_data.get('fileName')
                 
                 if file_name:
                     # 3. Construct download URL - handle both full URLs and filenames
-                    # The fileName field can be inconsistent:
-                    # - Sometimes it's a full URL (starting with 'http')
-                    # - Sometimes it's just a filename
+                    # URL Construction Logic as specified:
+                    # - Check if fileName starts with 'http'. If yes, use it as download_url directly.
+                    # - If no, append it to NSE_ARCHIVES_BASE_URL.
+                    # - Edge Case: If the constructed URL doesn't look like a valid NSE archive link,
+                    #   allow a fallback to https://nsearchives.nseindia.com/annual_reports/{fileName}
+                    
                     if file_name.startswith('http'):
                         # fileName is already a full URL, use it directly
                         download_url = file_name
@@ -268,29 +274,34 @@ def get_nse_report(symbol: str, output_path: Path, year: Optional[str] = None) -
                         logger.info(f"Successfully downloaded {output_path.name} ({file_size:.2f} MB)")
                         return True, None
                     elif pdf_response.status_code == 404:
-                        # Try fallback URL construction if 404
-                        # Only try fallback if we haven't already tried the annual_reports path
-                        if not download_url.startswith('http') or 'annual_reports' not in download_url:
-                            logger.warning(f"Got 404 for {download_url}, trying fallback URL construction...")
-                            # Extract just the filename if it's a full URL
-                            fallback_filename = file_name
-                            if '/' in file_name and file_name.startswith('http'):
-                                fallback_filename = file_name.split('/')[-1]
-                            
-                            fallback_url = f"https://nsearchives.nseindia.com/annual_reports/{fallback_filename}"
-                            logger.debug(f"Trying fallback URL: {fallback_url}")
-                            
-                            pdf_response = session.get(fallback_url, timeout=NSE_DOWNLOAD_TIMEOUT)
-                            if pdf_response.status_code == 200:
-                                output_path = Path(output_path)
-                                output_path.parent.mkdir(parents=True, exist_ok=True)
-                                with open(output_path, 'wb') as f:
-                                    f.write(pdf_response.content)
-                                file_size = len(pdf_response.content) / (1024 * 1024)
-                                logger.info(f"Successfully downloaded via fallback URL: {output_path.name} ({file_size:.2f} MB)")
-                                return True, None
+                        # Edge Case: If we got a 404, try the fallback to https://nsearchives.nseindia.com/annual_reports/{fileName}
+                        # Check if the URL looks like a valid NSE archive link
+                        is_valid_nse_url = 'nsearchives.nseindia.com/annual_reports' in download_url
                         
-                        error_msg = f"Failed to download PDF: HTTP 404 Not Found (tried: {download_url})"
+                        # Always try fallback on 404 (Edge Case: If the constructed URL doesn't look like a standard NSE archive link)
+                        logger.warning(f"Got 404 for {download_url}, trying fallback URL construction...")
+                        # Extract just the filename for fallback
+                        fallback_filename = file_name
+                        if '/' in file_name:
+                            # Extract filename from full URL or path
+                            fallback_filename = file_name.split('/')[-1]
+                        
+                        # Edge Case: Fallback to standard NSE archive URL format
+                        fallback_url = f"https://nsearchives.nseindia.com/annual_reports/{fallback_filename}"
+                        logger.debug(f"Trying fallback URL: {fallback_url}")
+                        
+                        pdf_response_fallback = session.get(fallback_url, timeout=NSE_DOWNLOAD_TIMEOUT)
+                        if pdf_response_fallback.status_code == 200:
+                            output_path = Path(output_path)
+                            output_path.parent.mkdir(parents=True, exist_ok=True)
+                            with open(output_path, 'wb') as f:
+                                f.write(pdf_response_fallback.content)
+                            file_size = len(pdf_response_fallback.content) / (1024 * 1024)
+                            logger.info(f"Successfully downloaded via fallback URL: {output_path.name} ({file_size:.2f} MB)")
+                            return True, None
+                        
+                        # If still 404 after fallback attempt, return error
+                        error_msg = f"Failed to download PDF: HTTP 404 Not Found (tried: {download_url} and fallback: {fallback_url})"
                         logger.warning(f"{symbol}: {error_msg}")
                         return False, error_msg
                     else:

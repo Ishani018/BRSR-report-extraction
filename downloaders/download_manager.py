@@ -45,11 +45,10 @@ def format_filename(company_name: str, year: str, is_standalone: bool = True, sy
         If symbol not available: {SerialNumber}_{CompanyName}_BRSR_{Year}.pdf
         If serial_number not available: {SYMBOL}_BRSR_{Year}.pdf
     """
-    # Format serial number with leading zeros (3 digits for up to 999, adjust as needed)
+    # Format serial number without leading zeros (e.g., 1, 2, 10, 100)
     serial_prefix = ""
     if serial_number is not None:
-        # Format with leading zeros (e.g., 001, 002, 010, 100)
-        serial_prefix = f"{serial_number:03d}_"  # 3-digit format with leading zeros
+        serial_prefix = f"{serial_number}_"  # No leading zeros
     
     # Use symbol if available (preferred - matches CSV/Excel format)
     if symbol and symbol.strip():
@@ -127,7 +126,7 @@ def download_brsr_report(
     # Use serial number + symbol for company folder name if serial_number available
     from pipeline.file_naming import clean_company_name
     if serial_number is not None:
-        company_folder = f"{serial_number:03d}_{symbol.upper()}"
+        company_folder = f"{serial_number}_{symbol.upper()}"
     else:
         company_folder = symbol.upper() if symbol else clean_company_name(company_name)
     
@@ -265,7 +264,7 @@ class DownloadManager:
         
         # Check if file exists in company/year folder structure
         if serial_number is not None:
-            company_folder = f"{serial_number:03d}_{symbol.upper()}"
+            company_folder = f"{serial_number}_{symbol.upper()}"
         else:
             company_folder = symbol.upper()
         
@@ -352,27 +351,44 @@ class DownloadManager:
         self,
         companies_df: pd.DataFrame,
         years: Optional[List[str]] = None,
-        resume: bool = True
+        resume: bool = True,
+        batch_size: int = 10,
+        num_batches: Optional[int] = None,
+        start_from_batch: int = 0
     ) -> Dict:
         """
         Batch download BRSR reports for multiple companies and years.
+        Processes companies in batches for better control.
         
         Args:
             companies_df: DataFrame with company information (must have: company_name, symbol, serial_number)
             years: List of financial years (defaults to config years)
             resume: If True, skip already downloaded files
+            batch_size: Number of companies to process in each batch (default: 10)
+            num_batches: Number of batches to process (None = all remaining, or specific number)
+            start_from_batch: Batch number to start from (0-indexed, for resuming)
             
         Returns:
-            Summary dictionary with statistics
+            Summary dictionary with statistics including next batch start info
         """
         if years is None:
             years = BRSR_FINANCIAL_YEARS
         
-        logger.info(f"Starting batch download for {len(companies_df)} companies × {len(years)} years = {len(companies_df) * len(years)} downloads")
+        total_companies = len(companies_df)
+        total_batches = (total_companies + batch_size - 1) // batch_size  # Ceiling division
         
-        # Prepare download tasks
-        tasks = []
-        for _, row in companies_df.iterrows():
+        logger.info(f"Starting batch download for {total_companies} companies × {len(years)} years")
+        logger.info(f"Batch size: {batch_size} companies per batch")
+        logger.info(f"Total batches: {total_batches}")
+        logger.info(f"Starting from batch: {start_from_batch}")
+        if num_batches:
+            logger.info(f"Processing {num_batches} batch(es) from batch {start_from_batch}")
+        else:
+            logger.info(f"Processing all remaining batches from batch {start_from_batch}")
+        
+        # Prepare companies list with their tasks
+        companies_with_tasks = []
+        for idx, (_, row) in enumerate(companies_df.iterrows()):
             company_name = str(row.get('company_name', '')).strip()
             symbol = str(row.get('symbol', '')).strip() if pd.notna(row.get('symbol')) else ''
             
@@ -393,52 +409,183 @@ class DownloadManager:
                 logger.warning(f"Skipping row with missing company_name or symbol: {row}")
                 continue
             
+            # Collect tasks for this company (checking what's not downloaded)
+            company_tasks = []
             for year in years:
                 # Check if already downloaded (uses company-based folder structure)
                 if resume and self.is_downloaded(symbol, year, serial_number=serial_number):
                     logger.debug(f"Skipping {company_name} ({year}) - already downloaded")
                     continue
                 
-                tasks.append({
+                company_tasks.append({
                     'company_name': company_name,
                     'symbol': symbol,
                     'year': year,
                     'serial_number': serial_number
                 })
-        
-        logger.info(f"Prepared {len(tasks)} download tasks")
-        
-        # Process downloads with progress bar
-        results = []
-        successful = 0
-        failed = 0
-        
-        # Use ThreadPoolExecutor for parallel processing
-        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-            # Submit all tasks (no website parameter needed - only NSE API)
-            future_to_task = {
-                executor.submit(
-                    self.download_single,
-                    task['company_name'],
-                    task['symbol'],
-                    task['year'],
-                    task.get('serial_number')  # Pass serial_number if available
-                ): task
-                for task in tasks
-            }
             
-            # Process completed tasks with progress bar
-            with tqdm(total=len(tasks), desc="Downloading BRSR reports", unit="file") as pbar:
-                for future in as_completed(future_to_task):
-                    task = future_to_task[future]
-                    try:
-                        result = future.result()
-                        results.append(result)
-                        
-                        if result['success']:
-                            successful += 1
-                        else:
-                            failed += 1
+            if company_tasks:  # Only add companies with pending downloads
+                companies_with_tasks.append({
+                    'row_idx': idx,
+                    'company_name': company_name,
+                    'symbol': symbol,
+                    'serial_number': serial_number,
+                    'tasks': company_tasks
+                })
+        
+        if not companies_with_tasks:
+            logger.info("No companies to process (all already downloaded or no valid companies)")
+            return {
+                'total_tasks': 0,
+                'successful': 0,
+                'failed': 0,
+                'success_rate': 0,
+                'batches_processed': 0,
+                'timestamp': datetime.now().isoformat(),
+                'status_csv_path': str(self.status_csv_path)
+            }
+        
+        # Determine which companies to process based on batch parameters
+        # start_from_batch refers to batches of companies with pending downloads
+        start_company_index = start_from_batch * batch_size
+        
+        # Slice companies based on start_from_batch
+        companies_to_process = companies_with_tasks[start_company_index:]
+        
+        # Further limit if num_batches is specified
+        if num_batches:
+            companies_to_process = companies_to_process[:num_batches * batch_size]
+        
+        # Calculate starting point for display
+        start_company_index = start_from_batch * batch_size
+        
+        if not companies_to_process:
+            logger.info(f"No companies to process from batch {start_from_batch} onwards")
+            logger.info(f"Total companies with pending downloads: {len(companies_with_tasks)}")
+            logger.info(f"Starting from company index: {start_company_index}")
+            return {
+                'total_tasks': 0,
+                'successful': 0,
+                'failed': 0,
+                'success_rate': 0,
+                'batches_processed': 0,
+                'timestamp': datetime.now().isoformat(),
+                'status_csv_path': str(self.status_csv_path)
+            }
+        
+        # Flatten tasks from selected companies for tracking
+        total_tasks_count = sum(len(c['tasks']) for c in companies_to_process)
+        
+        logger.info(f"\nTotal companies with pending downloads: {len(companies_with_tasks)}")
+        logger.info(f"Prepared {total_tasks_count} download tasks from {len(companies_to_process)} companies")
+        logger.info(f"Companies will be processed in batches of {batch_size}")
+        logger.info(f"Starting from batch {start_from_batch} (company index {start_company_index})")
+        
+        # Process each batch of companies
+        total_successful = 0
+        total_failed = 0
+        batches_processed = 0
+        all_results = []
+        
+        total_companies_to_process = len(companies_to_process)
+        current_batch_num = start_from_batch
+        
+        logger.info(f"Starting from company index: {start_company_index} (batch {start_from_batch})")
+        logger.info(f"Companies to process from this point: {total_companies_to_process}")
+        logger.info("")
+        
+        companies_processed_in_this_run = 0
+        
+        while companies_processed_in_this_run < total_companies_to_process:
+            # Check if we've processed enough batches in this run
+            if num_batches and batches_processed >= num_batches:
+                logger.info(f"\nReached requested number of batches ({num_batches}). Stopping.")
+                break
+            
+            # Determine batch range (process companies in batches)
+            batch_start_index = companies_processed_in_this_run
+            batch_end_index = min(batch_start_index + batch_size, total_companies_to_process)
+            batch_companies = companies_to_process[batch_start_index:batch_end_index]
+            
+            if not batch_companies:
+                break
+            
+            current_batch_num += 1
+            batches_processed += 1
+            
+            # Collect all tasks for this batch of companies
+            batch_tasks = []
+            for company in batch_companies:
+                batch_tasks.extend(company['tasks'])
+            
+            # Calculate absolute company indices for display (within companies_with_tasks)
+            absolute_start = start_company_index + batch_start_index + 1
+            absolute_end = start_company_index + batch_end_index
+            
+            logger.info(f"\n{'='*80}")
+            logger.info(f"Processing Batch {current_batch_num} (Companies {absolute_start}-{absolute_end} of {len(companies_with_tasks)} with pending downloads)")
+            logger.info(f"Companies in batch: {len(batch_companies)}")
+            logger.info(f"Tasks in batch: {len(batch_tasks)} (up to {len(batch_companies) * len(years)} possible)")
+            # Show companies in this batch
+            batch_symbols = [c['symbol'] for c in batch_companies]
+            batch_serials = [c['serial_number'] for c in batch_companies if c.get('serial_number')]
+            if batch_serials and len(batch_serials) == len(batch_symbols):
+                # Format as serial_symbol if serial numbers available
+                company_list = [f"{s}_{sym}" for s, sym in zip(batch_serials[:5], batch_symbols[:5])]
+                company_str = ', '.join(company_list)
+                if len(batch_symbols) > 5:
+                    company_str += '...'
+                logger.info(f"Companies: {company_str}")
+            else:
+                logger.info(f"Companies: {', '.join(batch_symbols[:5])}{'...' if len(batch_symbols) > 5 else ''}")
+            logger.info(f"{'='*80}")
+            
+            # Process this batch
+            batch_results = []
+            batch_successful = 0
+            batch_failed = 0
+            
+            # Use ThreadPoolExecutor for parallel processing within batch
+            with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+                # Submit all tasks for this batch
+                future_to_task = {
+                    executor.submit(
+                        self.download_single,
+                        task['company_name'],
+                        task['symbol'],
+                        task['year'],
+                        task.get('serial_number')
+                    ): task
+                    for task in batch_tasks
+                }
+                
+                # Process completed tasks with progress bar
+                with tqdm(total=len(batch_tasks), desc=f"Batch {current_batch_num}", unit="file") as pbar:
+                    for future in as_completed(future_to_task):
+                        task = future_to_task[future]
+                        try:
+                            result = future.result()
+                            batch_results.append(result)
+                            all_results.append(result)
+                            
+                            if result['success']:
+                                batch_successful += 1
+                                total_successful += 1
+                            else:
+                                batch_failed += 1
+                                total_failed += 1
+                                # Add failed result to status CSV (handled in download_single)
+                            
+                            pbar.set_postfix({
+                                'success': batch_successful,
+                                'failed': batch_failed,
+                                'total_success': total_successful,
+                                'total_failed': total_failed
+                            })
+                        except Exception as e:
+                            logger.error(f"Error processing {task['company_name']} ({task['year']}): {e}", exc_info=True)
+                            batch_failed += 1
+                            total_failed += 1
                             # Add failed result to status CSV
                             new_row = {
                                 'serial_number': task.get('serial_number') or '',
@@ -446,7 +593,7 @@ class DownloadManager:
                                 'symbol': task['symbol'],
                                 'year': task['year'],
                                 'status': 'Failed',
-                                'error': result.get('error', 'Unknown error'),
+                                'error': str(e),
                                 'file_path': '',
                                 'timestamp': datetime.now().isoformat()
                             }
@@ -454,39 +601,63 @@ class DownloadManager:
                                 self.status_df = pd.DataFrame([new_row])
                             else:
                                 self.status_df = pd.concat([self.status_df, pd.DataFrame([new_row])], ignore_index=True)
-                        
-                        pbar.set_postfix({'success': successful, 'failed': failed})
-                    except Exception as e:
-                        logger.error(f"Error processing {task['company_name']} ({task['year']}): {e}", exc_info=True)
-                        failed += 1
-                        # Add failed result to status CSV
-                        new_row = {
-                            'serial_number': task.get('serial_number') or '',
-                            'company_name': task['company_name'],
-                            'symbol': task['symbol'],
-                            'year': task['year'],
-                            'status': 'Failed',
-                            'error': str(e),
-                            'file_path': '',
-                            'timestamp': datetime.now().isoformat()
-                        }
-                        if self.status_df.empty:
-                            self.status_df = pd.DataFrame([new_row])
-                        else:
-                            self.status_df = pd.concat([self.status_df, pd.DataFrame([new_row])], ignore_index=True)
-                        pbar.set_postfix({'success': successful, 'failed': failed})
-                    finally:
-                        pbar.update(1)
+                            pbar.set_postfix({
+                                'success': batch_successful,
+                                'failed': batch_failed,
+                                'total_success': total_successful,
+                                'total_failed': total_failed
+                            })
+                        finally:
+                            pbar.update(1)
+            
+            # Save status CSV after each batch
+            self.save_status_csv()
+            
+            # Show batch summary
+            batch_rate = (batch_successful / len(batch_tasks) * 100) if batch_tasks else 0
+            logger.info(f"\nBatch {current_batch_num} Summary:")
+            logger.info(f"  Tasks: {len(batch_tasks)}")
+            logger.info(f"  Successful: {batch_successful}")
+            logger.info(f"  Failed: {batch_failed}")
+            logger.info(f"  Success rate: {batch_rate:.1f}%")
+            
+            # Update progress
+            companies_processed_in_this_run = batch_end_index
+            
+            # Show overall progress
+            remaining_companies = total_companies_to_process - companies_processed_in_this_run
+            remaining_batches = (remaining_companies + batch_size - 1) // batch_size
+            absolute_companies_processed = start_company_index + companies_processed_in_this_run
+            
+            logger.info(f"\nOverall Progress:")
+            logger.info(f"  This run: {companies_processed_in_this_run}/{total_companies_to_process} companies")
+            logger.info(f"  Total with pending: {absolute_companies_processed}/{len(companies_with_tasks)} companies")
+            logger.info(f"  Remaining in this run: {remaining_companies} companies (~{remaining_batches} batches)")
+            logger.info(f"  Next batch start: Batch {current_batch_num + 1} (Company index {absolute_companies_processed + 1})")
         
         # Save final status CSV
         self.save_status_csv()
         
+        # Calculate final statistics
+        absolute_companies_processed = start_company_index + companies_processed_in_this_run
+        next_batch_num = current_batch_num
+        
         # Generate summary
         summary = {
-            'total_tasks': len(tasks),
-            'successful': successful,
-            'failed': failed,
-            'success_rate': (successful / len(tasks) * 100) if tasks else 0,
+            'total_tasks': total_tasks_count,
+            'successful': total_successful,
+            'failed': total_failed,
+            'success_rate': (total_successful / total_tasks_count * 100) if total_tasks_count > 0 else 0,
+            'batches_processed': batches_processed,
+            'batch_size': batch_size,
+            'start_from_batch': start_from_batch,
+            'last_batch_completed': current_batch_num,
+            'companies_processed_in_run': companies_processed_in_this_run,
+            'total_companies_in_run': total_companies_to_process,
+            'absolute_companies_processed': absolute_companies_processed,
+            'total_companies_with_pending': len(companies_with_tasks),
+            'next_batch_start': next_batch_num,  # Next batch number to start from
+            'next_company_index': absolute_companies_processed,  # Next company index to start from (in companies_with_tasks)
             'timestamp': datetime.now().isoformat(),
             'status_csv_path': str(self.status_csv_path)
         }
@@ -498,7 +669,14 @@ class DownloadManager:
         logger.info(f"Successful: {summary['successful']}")
         logger.info(f"Failed: {summary['failed']}")
         logger.info(f"Success rate: {summary['success_rate']:.1f}%")
+        logger.info(f"Batches processed in this run: {summary['batches_processed']}")
+        logger.info(f"Companies processed in this run: {summary['companies_processed_in_run']}/{summary['total_companies_in_run']}")
+        logger.info(f"Total companies with pending downloads processed: {summary['absolute_companies_processed']}/{summary['total_companies_with_pending']}")
+        logger.info(f"Last batch completed: {summary['last_batch_completed']}")
+        logger.info(f"To continue: Set start_from_batch={summary['next_batch_start']} to resume from next batch")
+        logger.info(f"Next company index: {summary['next_company_index'] + 1} (of {summary['total_companies_with_pending']} with pending downloads)")
         logger.info(f"Status CSV saved to: {summary['status_csv_path']}")
+        logger.info(f"{'='*80}")
         
         return summary
 
@@ -508,7 +686,10 @@ def batch_download(
     years: Optional[List[str]] = None,
     output_base_dir: Optional[Path] = None,
     resume: bool = True,
-    max_workers: int = NSE_MAX_CONCURRENT
+    max_workers: int = NSE_MAX_CONCURRENT,
+    batch_size: int = 10,
+    num_batches: Optional[int] = None,
+    start_from_batch: int = 0
 ) -> Dict:
     """
     Convenience function for batch downloading BRSR reports.
@@ -519,6 +700,9 @@ def batch_download(
         output_base_dir: Base directory for downloads
         resume: If True, skip already downloaded files
         max_workers: Maximum concurrent downloads
+        batch_size: Number of companies to process in each batch (default: 10)
+        num_batches: Number of batches to process (None = all remaining, or specific number)
+        start_from_batch: Batch number to start from (0-indexed, for resuming)
         
     Returns:
         Summary dictionary
@@ -528,7 +712,7 @@ def batch_download(
         max_workers=max_workers
     )
     
-    return manager.batch_download(companies_df, years, resume)
+    return manager.batch_download(companies_df, years, resume, batch_size, num_batches, start_from_batch)
 
 
 if __name__ == "__main__":

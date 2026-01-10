@@ -274,8 +274,16 @@ def main():
     years = BRSR_FINANCIAL_YEARS
     logger.info(f"Processing {len(companies_df)} companies × {len(years)} years = {len(companies_df) * len(years)} downloads")
     
-    # Batch download with resume capability
-    download_summary = download_manager.batch_download(companies_df, years, resume=True)
+    # Batch download with resume capability (default: batches of 10 companies)
+    # To customize: batch_size=10, num_batches=None (all), start_from_batch=0
+    download_summary = download_manager.batch_download(
+        companies_df, 
+        years, 
+        resume=True,
+        batch_size=10,  # Process 10 companies per batch
+        num_batches=None,  # Process all remaining batches
+        start_from_batch=0  # Start from batch 0
+    )
     logger.info(f"Download summary: {download_summary}")
     
     # Step 3: Process downloaded PDFs
