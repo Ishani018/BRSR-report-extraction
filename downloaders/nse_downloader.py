@@ -4,6 +4,7 @@ NSE API Downloader - Tier 1 (Primary) download source using NSE corporate filing
 import logging
 import requests
 import time
+import zipfile
 from pathlib import Path
 from typing import Optional, Tuple
 
@@ -20,7 +21,46 @@ from config.config import (
 logger = logging.getLogger(__name__)
 
 
-def get_nse_report(symbol: str, output_path: Path, year: Optional[str] = None) -> Tuple[bool, Optional[str]]:
+def extract_pdf_from_zip(zip_path: Path, output_path: Path) -> Tuple[bool, Optional[str]]:
+    """
+    Extract PDF file from ZIP archive.
+    
+    Args:
+        zip_path: Path to ZIP file
+        output_path: Path where extracted PDF should be saved
+        
+    Returns:
+        Tuple of (success: bool, error_message: Optional[str])
+    """
+    try:
+        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+            # Find PDF files in the ZIP
+            pdf_files = [f for f in zip_ref.namelist() if f.lower().endswith('.pdf')]
+            
+            if not pdf_files:
+                return False, "No PDF files found in ZIP archive"
+            
+            # Use the first PDF file found (usually there's only one)
+            pdf_file = pdf_files[0]
+            if len(pdf_files) > 1:
+                logger.info(f"Multiple PDFs in ZIP, extracting first one: {pdf_file}")
+            
+            # Extract the PDF
+            with zip_ref.open(pdf_file) as pdf_content:
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                with open(output_path, 'wb') as out_file:
+                    out_file.write(pdf_content.read())
+            
+            logger.info(f"Extracted PDF from ZIP: {pdf_file}")
+            return True, None
+            
+    except zipfile.BadZipFile:
+        return False, "Invalid ZIP file"
+    except Exception as e:
+        return False, f"Error extracting ZIP: {e}"
+
+
+def get_nse_report(symbol: str, output_path: Path, year: Optional[str] = None) -> Tuple[bool, Optional[str], Optional[str]]:
     """
     Download Annual Report (containing BRSR) from NSE API for a given symbol.
     
@@ -107,7 +147,7 @@ def get_nse_report(symbol: str, output_path: Path, year: Optional[str] = None) -
             except Exception as e:
                 logger.error(f"Failed to parse JSON response: {e}")
                 logger.debug(f"Response text (first 1000 chars): {response.text[:1000]}")
-                return False, f"Invalid JSON response: {e}"
+                return False, f"Invalid JSON response: {e}", None
             
             # Debug: Log the response structure
             logger.debug(f"API Response type: {type(data)}")
@@ -136,6 +176,7 @@ def get_nse_report(symbol: str, output_path: Path, year: Optional[str] = None) -
             if isinstance(data, list) and len(data) > 0:
                 # Filter by year if provided, otherwise get latest (first item - data[0])
                 report_data = None
+                report_type = None  # Will be set to "BRSR" or "Annual Report"
                 
                 # Log available reports for debugging
                 logger.info(f"Found {len(data)} annual report(s) for {symbol}")
@@ -170,11 +211,35 @@ def get_nse_report(symbol: str, output_path: Path, year: Optional[str] = None) -
                         
                         logger.info(f"Filtering reports for financial year {year} (FY {year_start}-{year_end})")
                         
+                        # Helper function to check if a report is a BRSR report
+                        def is_brsr_report(report: dict) -> bool:
+                            """Check if report is a standalone BRSR report."""
+                            submission_type = str(report.get('submission_type', '')).upper()
+                            file_name = str(report.get('fileName', '')).upper()
+                            
+                            # Check submission_type for BRSR indicators
+                            brsr_keywords = ['BRSR', 'BUSINESS RESPONSIBILITY', 'SUSTAINABILITY']
+                            if any(keyword in submission_type for keyword in brsr_keywords):
+                                return True
+                            
+                            # Check fileName for BRSR indicators (but exclude "AR_" prefix which indicates Annual Report)
+                            if not file_name.startswith('AR_') and any(keyword in file_name for keyword in brsr_keywords):
+                                return True
+                            
+                            return False
+                        
                         # First, try to match using fromYr and toYr fields directly (most reliable)
-                        candidates = []
+                        # Separate BRSR and annual report candidates
+                        brsr_candidates = []
+                        annual_candidates = []
+                        
                         for idx, report in enumerate(data):
                             from_yr = report.get('fromYr')
                             to_yr = report.get('toYr')
+                            
+                            # Check if year matches
+                            year_matches = False
+                            match_reason = ""
                             
                             # Direct match: fromYr and toYr match exactly
                             if from_yr and to_yr:
@@ -184,33 +249,54 @@ def get_nse_report(symbol: str, output_path: Path, year: Optional[str] = None) -
                                     
                                     # Match if fromYr matches start year and toYr matches end year
                                     if from_yr_int == year_start and to_yr_int == year_end:
-                                        candidates.append((report, idx, f"fromYr={from_yr},toYr={to_yr}"))
-                                        logger.debug(f"Candidate #{idx}: Exact match - fromYr={from_yr}, toYr={to_yr}")
+                                        year_matches = True
+                                        match_reason = f"fromYr={from_yr},toYr={to_yr}"
+                                        logger.debug(f"Report #{idx}: Year match - {match_reason}")
+                                    # NSE API quirk: sometimes toYr equals fromYr (e.g., 2024-2024 for FY 2024-25)
+                                    # In this case, match if fromYr matches start year and toYr equals fromYr
+                                    elif from_yr_int == year_start and to_yr_int == from_yr_int:
+                                        # This is likely the correct FY (NSE API quirk)
+                                        year_matches = True
+                                        match_reason = f"fromYr={from_yr},toYr={to_yr} (NSE API quirk: toYr=fromYr)"
+                                        logger.debug(f"Report #{idx}: Year match (NSE API quirk) - {match_reason}")
                                 except (ValueError, AttributeError):
                                     pass
                             
                             # Fallback: check fileName for year pattern (e.g., "AR_2022_2023.pdf" or "2022-23")
-                            if not candidates or idx == 0:  # Always check first few for debugging
+                            if not year_matches:
                                 file_name_check = report.get('fileName', '')
                                 # Check if fileName contains both years
                                 if (str(year_start) in file_name_check and 
                                     (str(year_end) in file_name_check or year_end_str in file_name_check or str(year) in file_name_check)):
-                                    if not any(c[0] == report for c in candidates):  # Avoid duplicates
-                                        candidates.append((report, idx, f"fileName={file_name_check[:80]}"))
-                                        logger.debug(f"Candidate #{idx}: matches year in fileName")
+                                    year_matches = True
+                                    match_reason = f"fileName={file_name_check[:80]}"
+                                    logger.debug(f"Report #{idx}: Year match in fileName")
+                            
+                            # If year matches, categorize as BRSR or Annual Report
+                            if year_matches:
+                                if is_brsr_report(report):
+                                    brsr_candidates.append((report, idx, match_reason))
+                                    logger.debug(f"BRSR candidate #{idx}: {match_reason}")
+                                else:
+                                    annual_candidates.append((report, idx, match_reason))
+                                    logger.debug(f"Annual Report candidate #{idx}: {match_reason}")
                         
-                        # Select best candidate (exact fromYr/toYr match preferred)
+                        # ONLY select BRSR reports - reject annual reports
+                        candidates = brsr_candidates  # Only use BRSR candidates, no annual report fallback
+                        report_type = "BRSR"
+                        
                         if candidates:
                             # Prefer candidates with exact fromYr/toYr match
                             exact_matches = [c for c in candidates if 'fromYr' in c[2]]
                             if exact_matches:
                                 report_data = exact_matches[0][0]
-                                logger.info(f"Selected report for {year}: fromYr={report_data.get('fromYr')}, toYr={report_data.get('toYr')}")
+                                logger.info(f"Selected BRSR report for {year}: {exact_matches[0][2]}")
                             else:
                                 report_data = candidates[0][0]
-                                logger.info(f"Selected report for {year}: {candidates[0][2]}")
+                                logger.info(f"Selected BRSR report for {year}: {candidates[0][2]}")
                         else:
-                            logger.warning(f"No report found matching year {year} in {len(data)} available reports")
+                            # No BRSR report found - mark as failed (don't use annual report)
+                            logger.warning(f"No BRSR report found matching year {year} in {len(data)} available reports")
                             # Log all available years for debugging
                             available_fy = []
                             for idx, report in enumerate(data[:min(10, len(data))]):  # Check first 10 reports
@@ -223,20 +309,23 @@ def get_nse_report(symbol: str, output_path: Path, year: Optional[str] = None) -
                                         pass
                             if available_fy:
                                 logger.info(f"Available financial years found: {', '.join(available_fy)}")
+                            # Don't set report_data - will return failure below
                             
                     except Exception as e:
-                        logger.warning(f"Error filtering by year {year}: {e}, falling back to latest report")
+                        logger.warning(f"Error filtering by year {year}: {e}")
                         import traceback
                         logger.debug(traceback.format_exc())
+                        # Don't fall back - will return failure below if report_data is None
                 
-                # If no year filtering or no match found, use the latest report (data[0])
-                # The Annual Reports API returns reports with latest first, so data[0] is the latest report
+                # If no BRSR report found, return failure (don't use annual report fallback)
                 if report_data is None:
-                    report_data = data[0]  # Use first item as the latest report
                     if year:
-                        logger.warning(f"No report found for year {year}, using latest available report (data[0])")
+                        error_msg = f"No BRSR report found for year {year} (only BRSR reports are accepted, annual reports are rejected)"
+                        logger.warning(f"{symbol}: {error_msg}")
                     else:
-                        logger.debug(f"No year specified, using latest report (data[0])")
+                        error_msg = "No BRSR report found (only BRSR reports are accepted, annual reports are rejected)"
+                        logger.warning(f"{symbol}: {error_msg}")
+                    return False, error_msg, None
                 
                 file_name = report_data.get('fileName')
                 
@@ -270,9 +359,58 @@ def get_nse_report(symbol: str, output_path: Path, year: Optional[str] = None) -
                         with open(output_path, 'wb') as f:
                             f.write(pdf_response.content)
                         
-                        file_size = len(pdf_response.content) / (1024 * 1024)  # MB
-                        logger.info(f"Successfully downloaded {output_path.name} ({file_size:.2f} MB)")
-                        return True, None
+                        # Validate downloaded PDF
+                        file_size_bytes = output_path.stat().st_size
+                        file_size_mb = file_size_bytes / (1024 * 1024)  # MB
+                        
+                        # Check file size (must be at least 1KB)
+                        if file_size_bytes < 1000:
+                            error_msg = f"Downloaded file is too small ({file_size_bytes} bytes) - likely corrupted or incomplete"
+                            logger.warning(f"{symbol}: {error_msg}")
+                            output_path.unlink()  # Delete invalid file
+                            return False, error_msg, None
+                        
+                        # Check if file is actually a PDF or ZIP (check first bytes)
+                        try:
+                            with open(output_path, 'rb') as f:
+                                first_bytes = f.read(4)
+                                
+                                if first_bytes == b'%PDF':
+                                    # Valid PDF - proceed
+                                    pass
+                                elif first_bytes == b'PK\x03\x04' or first_bytes == b'PK\x05\x06':
+                                    # ZIP file - extract PDF from it
+                                    logger.info(f"{symbol}: Downloaded file is a ZIP archive, extracting PDF...")
+                                    zip_path = output_path
+                                    # Create temporary path for extracted PDF
+                                    extracted_pdf_path = output_path.with_suffix('.pdf.tmp')
+                                    
+                                    success_extract, extract_error = extract_pdf_from_zip(zip_path, extracted_pdf_path)
+                                    
+                                    if not success_extract:
+                                        error_msg = f"Failed to extract PDF from ZIP: {extract_error}"
+                                        logger.warning(f"{symbol}: {error_msg}")
+                                        output_path.unlink()  # Delete ZIP file
+                                        return False, error_msg, None
+                                    
+                                    # Replace ZIP with extracted PDF
+                                    zip_path.unlink()  # Delete ZIP file
+                                    extracted_pdf_path.replace(output_path)  # Rename extracted PDF to final path
+                                    logger.info(f"{symbol}: Successfully extracted PDF from ZIP")
+                                else:
+                                    error_msg = f"Downloaded file is not a valid PDF or ZIP (first bytes: {first_bytes})"
+                                    logger.warning(f"{symbol}: {error_msg}")
+                                    output_path.unlink()  # Delete invalid file
+                                    return False, error_msg, None
+                        except Exception as e:
+                            error_msg = f"Error validating PDF/ZIP file: {e}"
+                            logger.warning(f"{symbol}: {error_msg}")
+                            if output_path.exists():
+                                output_path.unlink()  # Delete invalid file
+                            return False, error_msg, None
+                        
+                        logger.info(f"Successfully downloaded and validated {output_path.name} ({file_size_mb:.2f} MB)")
+                        return True, None, report_type
                     elif pdf_response.status_code == 404:
                         # Edge Case: If we got a 404, try the fallback to https://nsearchives.nseindia.com/annual_reports/{fileName}
                         # Check if the URL looks like a valid NSE archive link
@@ -296,22 +434,72 @@ def get_nse_report(symbol: str, output_path: Path, year: Optional[str] = None) -
                             output_path.parent.mkdir(parents=True, exist_ok=True)
                             with open(output_path, 'wb') as f:
                                 f.write(pdf_response_fallback.content)
-                            file_size = len(pdf_response_fallback.content) / (1024 * 1024)
-                            logger.info(f"Successfully downloaded via fallback URL: {output_path.name} ({file_size:.2f} MB)")
-                            return True, None
+                            
+                            # Validate downloaded PDF
+                            file_size_bytes = output_path.stat().st_size
+                            file_size_mb = file_size_bytes / (1024 * 1024)  # MB
+                            
+                            # Check file size (must be at least 1KB)
+                            if file_size_bytes < 1000:
+                                error_msg = f"Downloaded file is too small ({file_size_bytes} bytes) - likely corrupted or incomplete"
+                                logger.warning(f"{symbol}: {error_msg}")
+                                output_path.unlink()  # Delete invalid file
+                                return False, error_msg, None
+                            
+                            # Check if file is actually a PDF or ZIP (check first bytes)
+                            try:
+                                with open(output_path, 'rb') as f:
+                                    first_bytes = f.read(4)
+                                    
+                                    if first_bytes == b'%PDF':
+                                        # Valid PDF - proceed
+                                        pass
+                                    elif first_bytes == b'PK\x03\x04' or first_bytes == b'PK\x05\x06':
+                                        # ZIP file - extract PDF from it
+                                        logger.info(f"{symbol}: Downloaded file is a ZIP archive, extracting PDF...")
+                                        zip_path = output_path
+                                        # Create temporary path for extracted PDF
+                                        extracted_pdf_path = output_path.with_suffix('.pdf.tmp')
+                                        
+                                        success_extract, extract_error = extract_pdf_from_zip(zip_path, extracted_pdf_path)
+                                        
+                                        if not success_extract:
+                                            error_msg = f"Failed to extract PDF from ZIP: {extract_error}"
+                                            logger.warning(f"{symbol}: {error_msg}")
+                                            output_path.unlink()  # Delete ZIP file
+                                            return False, error_msg, None
+                                        
+                                        # Replace ZIP with extracted PDF
+                                        zip_path.unlink()  # Delete ZIP file
+                                        extracted_pdf_path.replace(output_path)  # Rename extracted PDF to final path
+                                        logger.info(f"{symbol}: Successfully extracted PDF from ZIP")
+                                    else:
+                                        error_msg = f"Downloaded file is not a valid PDF or ZIP (first bytes: {first_bytes})"
+                                        logger.warning(f"{symbol}: {error_msg}")
+                                        output_path.unlink()  # Delete invalid file
+                                        return False, error_msg, None
+                            except Exception as e:
+                                error_msg = f"Error validating PDF/ZIP file: {e}"
+                                logger.warning(f"{symbol}: {error_msg}")
+                                if output_path.exists():
+                                    output_path.unlink()  # Delete invalid file
+                                return False, error_msg, None
+                            
+                            logger.info(f"Successfully downloaded and validated via fallback URL: {output_path.name} ({file_size_mb:.2f} MB)")
+                            return True, None, report_type
                         
                         # If still 404 after fallback attempt, return error
                         error_msg = f"Failed to download PDF: HTTP 404 Not Found (tried: {download_url} and fallback: {fallback_url})"
                         logger.warning(f"{symbol}: {error_msg}")
-                        return False, error_msg
+                        return False, error_msg, None
                     else:
                         error_msg = f"Failed to download PDF: HTTP {pdf_response.status_code}"
                         logger.warning(f"{symbol}: {error_msg}")
-                        return False, error_msg
+                        return False, error_msg, None
                 else:
                     error_msg = "No fileName found in API response"
                     logger.warning(f"{symbol}: {error_msg}")
-                    return False, error_msg
+                    return False, error_msg, None
             else:
                 # Log the actual response for debugging - IMPORTANT for troubleshooting
                 error_details = []
@@ -345,32 +533,32 @@ def get_nse_report(symbol: str, output_path: Path, year: Optional[str] = None) -
                 error_msg = f"No annual reports found for symbol {symbol} (API returned {', '.join(error_details) if error_details else type(data).__name__})"
                 logger.info(f"{symbol}: {error_msg}")
                 logger.info(f"API endpoint used: {api_url}")
-                return False, error_msg
+                return False, error_msg, None
         elif response.status_code == 403:
             error_msg = "403 Forbidden - Session may have expired or rate limited. Try increasing delay."
             logger.warning(f"{symbol}: {error_msg}")
-            return False, error_msg
+            return False, error_msg, None
         elif response.status_code == 404:
             error_msg = f"404 Not Found - API endpoint may have changed or symbol {symbol} not found"
             logger.warning(f"{symbol}: {error_msg}")
-            return False, error_msg
+            return False, error_msg, None
         else:
             error_msg = f"API returned status code {response.status_code}"
             logger.warning(f"{symbol}: {error_msg}")
-            return False, error_msg
+            return False, error_msg, None
             
     except requests.exceptions.Timeout as e:
         error_msg = f"Timeout while accessing NSE API: {e}"
         logger.error(f"{symbol}: {error_msg}")
-        return False, error_msg
+        return False, error_msg, None
     except requests.exceptions.RequestException as e:
         error_msg = f"Request error: {e}"
         logger.error(f"{symbol}: {error_msg}")
-        return False, error_msg
+        return False, error_msg, None
     except Exception as e:
         error_msg = f"Unexpected error: {e}"
         logger.error(f"{symbol}: {error_msg}", exc_info=True)
-        return False, error_msg
+        return False, error_msg, None
 
 
 class NSEDownloader:
@@ -389,7 +577,7 @@ class NSEDownloader:
         self.rate_limit_delay = rate_limit_delay if rate_limit_delay is not None else NSE_RATE_LIMIT_DELAY
         self.last_request_time = 0
         
-    def download(self, symbol: str, output_path: Path, year: Optional[str] = None) -> Tuple[bool, Optional[str]]:
+    def download(self, symbol: str, output_path: Path, year: Optional[str] = None) -> Tuple[bool, Optional[str], Optional[str]]:
         """
         Download BRSR report with rate limiting.
         
@@ -399,7 +587,7 @@ class NSEDownloader:
             year: Optional financial year filter
         
         Returns:
-            Tuple of (success: bool, error_message: Optional[str])
+            Tuple of (success: bool, error_message: Optional[str], report_type: Optional[str])
         """
         # Rate limiting: ensure minimum delay between requests
         elapsed = time.time() - self.last_request_time

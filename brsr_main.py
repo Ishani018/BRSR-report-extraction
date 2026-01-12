@@ -5,7 +5,7 @@ import logging
 import sys
 import json
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from datetime import datetime
 from tqdm import tqdm
 import pandas as pd
@@ -54,7 +54,10 @@ def process_brsr_pdf(
     pdf_path: Path,
     company_name: str,
     year: str,
-    download_tier: Optional[str] = None
+    download_tier: Optional[str] = None,
+    naming_convention: Optional[str] = None,
+    symbol: Optional[str] = None,
+    serial_number: Optional[int] = None
 ) -> Dict[str, Any]:
     """
     Process BRSR PDF through the entire pipeline.
@@ -64,6 +67,9 @@ def process_brsr_pdf(
         company_name: Company name
         year: Financial year
         download_tier: Tier used for download (tier1, tier2, or None)
+        naming_convention: Optional naming convention from Excel for output files
+        symbol: Optional company symbol for naming convention
+        serial_number: Optional serial number for naming convention
         
     Returns:
         Dictionary with processing results
@@ -117,7 +123,11 @@ def process_brsr_pdf(
         
         # Step 6: Create output directory
         logger.info("Step 6/7: Creating output directory...")
-        output_path = create_brsr_output_directory(company_name, year)
+        output_path = create_brsr_output_directory(
+            company_name, year, 
+            symbol=symbol, 
+            serial_number=serial_number
+        )
         
         # Step 7: Process and export based on BRSR type
         logger.info("Step 7/7: Processing and exporting...")
@@ -127,11 +137,10 @@ def process_brsr_pdf(
             logger.info("  Processing as STANDALONE BRSR...")
             
             # Export to DOCX
-            docx_filename = format_brsr_output_filename(company_name, year, True, False, 'docx')
-            docx_path = output_path / docx_filename
             docx_path = export_brsr_to_docx(
                 cleaned_pages, output_path, company_name, year,
-                is_standalone=True, is_from_annual=False
+                is_standalone=True, is_from_annual=False,
+                naming_convention=naming_convention, symbol=symbol, serial_number=serial_number
             )
             result['output_files'].append(str(docx_path))
             
@@ -151,7 +160,10 @@ def process_brsr_pdf(
             )
             
             # Export JSON
-            json_filename = format_brsr_output_filename(company_name, year, True, False, 'json')
+            json_filename = format_brsr_output_filename(
+                company_name, year, True, False, 'json',
+                naming_convention=naming_convention, symbol=symbol, serial_number=serial_number
+            )
             json_path = output_path / json_filename
             hierarchy_builder.export_section_json(full_report_hierarchy, json_path)
             result['output_files'].append(str(json_path))
@@ -176,26 +188,27 @@ def process_brsr_pdf(
             else:
                 # Fallback: process entire document but mark as from annual report
                 logger.warning("  Section extraction failed, processing entire document as fallback...")
-                docx_filename = format_brsr_output_filename(company_name, year, False, True, 'docx')
-                docx_path = output_path / docx_filename
                 docx_path = export_brsr_to_docx(
                     cleaned_pages, output_path, company_name, year,
-                    is_standalone=False, is_from_annual=True
+                    is_standalone=False, is_from_annual=True,
+                    naming_convention=naming_convention, symbol=symbol, serial_number=serial_number
                 )
                 result['output_files'].append(str(docx_path))
         else:
             # Unknown type - process as standalone but with lower confidence
             logger.warning("  BRSR type unknown, processing as standalone with low confidence...")
-            docx_filename = format_brsr_output_filename(company_name, year, True, False, 'docx')
-            docx_path = output_path / docx_filename
             docx_path = export_brsr_to_docx(
                 cleaned_pages, output_path, company_name, year,
-                is_standalone=True, is_from_annual=False
+                is_standalone=True, is_from_annual=False,
+                naming_convention=naming_convention, symbol=symbol, serial_number=serial_number
             )
             result['output_files'].append(str(docx_path))
         
         # Create metadata JSON
-        metadata_filename = format_brsr_output_filename(company_name, year, brsr_type == 'standalone', brsr_type == 'embedded', 'metadata')
+        metadata_filename = format_brsr_output_filename(
+            company_name, year, brsr_type == 'standalone', brsr_type == 'embedded', 'metadata',
+            naming_convention=naming_convention, symbol=symbol, serial_number=serial_number
+        )
         metadata_path = output_path / metadata_filename
         metadata = {
             "company": company_name,
@@ -275,13 +288,14 @@ def main():
     logger.info(f"Processing {len(companies_df)} companies × {len(years)} years = {len(companies_df) * len(years)} downloads")
     
     # Batch download with resume capability (default: batches of 10 companies)
-    # To customize: batch_size=10, num_batches=None (all), start_from_batch=0
+    # With resume=True, already downloaded files will be skipped automatically
+    # Set num_batches=None to process all companies, or a number to limit batches
     download_summary = download_manager.batch_download(
         companies_df, 
         years, 
-        resume=True,
+        resume=True,  # Skip already downloaded files
         batch_size=10,  # Process 10 companies per batch
-        num_batches=None,  # Process all remaining batches
+        num_batches=None,  # Process all remaining batches (None = all)
         start_from_batch=0  # Start from batch 0
     )
     logger.info(f"Download summary: {download_summary}")
@@ -290,29 +304,79 @@ def main():
     logger.info("\nStep 3: Processing downloaded PDFs...")
     processing_results = []
     
-    # Load download status to get download information
-    download_status = download_manager.status.get('downloads', [])
+    # Load download status from CSV DataFrame
+    status_df = download_manager.status_df
     
-    # Process each downloaded PDF
-    for download in tqdm(download_status, desc="Processing BRSR reports", unit="file"):
-        if not download.get('success'):
-            continue  # Skip failed downloads
+    # Filter for successfully downloaded files
+    if status_df.empty:
+        logger.warning("No download status found. Please run the download step first.")
+    else:
+        downloaded_df = status_df[status_df['status'] == 'Downloaded']
+        logger.info(f"Found {len(downloaded_df)} successfully downloaded PDFs to process")
         
-        file_path = download.get('file_path')
-        if not file_path or not Path(file_path).exists():
-            continue  # Skip if file doesn't exist
-        
-        pdf_path = Path(file_path)
-        company_name = download.get('company_name', '')
-        year = download.get('year', '')
-        tier = download.get('tier')
-        
-        if not company_name or not year:
-            continue
-        
-        # Process PDF
-        result = process_brsr_pdf(pdf_path, company_name, year, tier)
-        processing_results.append(result)
+        if downloaded_df.empty:
+            logger.warning("No successfully downloaded files found in status CSV.")
+        else:
+            # TESTING MODE: Process first 10 PDFs, but ensure we get at least one from each year
+            # For full run, remove this entire block and process all rows directly
+            test_limit = 10
+            
+            # Get one file from each year first
+            test_df_parts = []
+            selected_indices = set()
+            
+            for year in BRSR_FINANCIAL_YEARS:
+                year_files = downloaded_df[downloaded_df['year'] == year]
+                if not year_files.empty:
+                    first_year_file = year_files.iloc[[0]]  # Get first file for this year
+                    test_df_parts.append(first_year_file)
+                    selected_indices.add(first_year_file.index[0])
+            
+            # If we haven't reached the limit, add more files (excluding already selected)
+            remaining_limit = test_limit - len(test_df_parts)
+            if remaining_limit > 0:
+                remaining_df = downloaded_df[~downloaded_df.index.isin(selected_indices)]
+                if not remaining_df.empty:
+                    additional_files = remaining_df.head(remaining_limit)
+                    test_df_parts.append(additional_files)
+            
+            # Combine all selected files
+            if test_df_parts:
+                downloaded_df = pd.concat(test_df_parts, ignore_index=False).sort_index()
+            
+            logger.info(f"TESTING MODE: Processing {len(downloaded_df)} PDFs (ensured at least one per year if available)")
+            
+            # Process each downloaded PDF
+            for _, row in tqdm(downloaded_df.iterrows(), total=len(downloaded_df), desc="Processing BRSR reports", unit="file"):
+                file_path = row.get('file_path', '')
+                if not file_path or pd.isna(file_path):
+                    continue  # Skip if file path is missing
+                
+                file_path = str(file_path).strip()
+                if not Path(file_path).exists():
+                    logger.warning(f"File not found: {file_path}")
+                    continue  # Skip if file doesn't exist
+                
+                pdf_path = Path(file_path)
+                company_name = row.get('company_name', '')
+                year = row.get('year', '')
+                
+                # Handle NaN values
+                if pd.isna(company_name) or pd.isna(year):
+                    continue
+                
+                company_name = str(company_name).strip()
+                year = str(year).strip()
+                
+                if not company_name or not year:
+                    continue
+                
+                # Note: tier/download_tier is not stored in CSV, so using None
+                tier = None
+                
+                # Process PDF
+                result = process_brsr_pdf(pdf_path, company_name, year, tier)
+                processing_results.append(result)
     
     # Step 4: Generate summary
     logger.info("\n" + "="*80)

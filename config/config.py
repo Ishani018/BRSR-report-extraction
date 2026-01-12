@@ -4,6 +4,17 @@ Configuration settings for the PDF processing pipeline.
 import os
 from pathlib import Path
 
+# Load environment variables from .env file if it exists
+try:
+    from dotenv import load_dotenv
+    # Load .env file from the parent directory (pdf-to-structured-reports/)
+    env_path = Path(__file__).parent.parent / '.env'
+    if env_path.exists():
+        load_dotenv(env_path)
+except ImportError:
+    # python-dotenv not installed, skip .env file loading
+    pass
+
 # Base directories
 BASE_DIR = Path(__file__).parent
 DATA_DIR = BASE_DIR / "data"

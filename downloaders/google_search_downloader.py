@@ -65,10 +65,12 @@ def build_search_query(company_name: str, website: str, year: str) -> str:
     
     if domain:
         # Use site: search to limit to company website
-        query = f'site:{domain} filetype:pdf "BRSR" {year}'
+        # Prioritize standalone BRSR reports - exclude "annual report" in title
+        query = f'site:{domain} filetype:pdf "BRSR" "{year}" -"annual report"'
     else:
-        # Fallback to company name search
-        query = f'"{company_name}" "Business Responsibility and Sustainability Report" "BRSR" {year} filetype:pdf'
+        # Prioritize standalone BRSR reports - exclude annual reports from results
+        # Use quotes around BRSR to require it, and exclude "annual report"
+        query = f'"{company_name}" "BRSR" "{year}" filetype:pdf -"annual report"'
     
     return query
 
@@ -202,6 +204,60 @@ def is_pdf_url(url: str) -> bool:
     return False
 
 
+def validate_pdf_is_brsr(pdf_path: Path) -> bool:
+    """
+    Quick validation to check if a PDF is likely a BRSR report.
+    Extracts text from first few pages and checks for BRSR keywords.
+    
+    Args:
+        pdf_path: Path to PDF file
+        
+    Returns:
+        True if PDF appears to be a BRSR report, False otherwise
+    """
+    try:
+        # Try pdfplumber first
+        try:
+            import pdfplumber
+            with pdfplumber.open(pdf_path) as pdf:
+                # Check first 3 pages for BRSR keywords
+                text_sample = ""
+                for page_num in range(min(3, len(pdf.pages))):
+                    page = pdf.pages[page_num]
+                    text_sample += page.extract_text() or ""
+                
+                text_lower = text_sample.lower()
+                # Check for BRSR indicators
+                brsr_keywords = ['brsr', 'business responsibility', 'sustainability report', 
+                               'business responsibility and sustainability']
+                has_brsr_keywords = any(keyword in text_lower for keyword in brsr_keywords)
+                
+                if has_brsr_keywords:
+                    return True
+                return False
+        except ImportError:
+            # Fallback to PyMuPDF if pdfplumber not available
+            try:
+                import fitz
+                doc = fitz.open(pdf_path)
+                text_sample = ""
+                for page_num in range(min(3, len(doc))):
+                    page = doc[page_num]
+                    text_sample += page.get_text().lower()
+                doc.close()
+                
+                brsr_keywords = ['brsr', 'business responsibility', 'sustainability report']
+                has_brsr_keywords = any(keyword in text_sample for keyword in brsr_keywords)
+                return has_brsr_keywords
+            except ImportError:
+                # If no PDF library available, assume it's valid (can't validate)
+                return True
+    except Exception as e:
+        logger.debug(f"Error validating PDF content: {e}")
+        # If validation fails, assume it might be valid (don't reject on validation error)
+        return True
+
+
 def download_pdf(url: str, output_path: Path, timeout: int = 30) -> Tuple[bool, Optional[str]]:
     """
     Download PDF from URL.
@@ -302,10 +358,114 @@ def get_google_search_report(
         logger.warning(f"{company_name} ({year}): {error_msg}")
         return False, error_msg
     
-    # Try to download first valid PDF
+    # Prioritize results - Google Search query already includes "BRSR" so results should be relevant
+    # Use smart prioritization to pick the best result, rely on PDF validation for final check
+    # Be less strict with filtering since PDF validation will verify content
+    brsr_results = []
+    annual_results = []
+    
+    # Extract year components for matching
+    year_parts = year.split('-') if '-' in year else [year]
+    year_start = year_parts[0] if year_parts else ""
+    year_end_short = year_parts[1] if len(year_parts) > 1 else ""
+    
+    for idx, result in enumerate(pdf_results):
+        title = result.get('title', '').lower()
+        link = result.get('link', '').lower()
+        combined_text = f"{title} {link}"
+        
+        # Check if it's clearly an annual report (has "annual report" but no BRSR indicators)
+        has_annual = 'annual report' in combined_text or 'annual-report' in combined_text or 'annualreport' in combined_text
+        has_brsr_indicators = 'brsr' in combined_text or 'business responsibility' in combined_text or 'sustainability report' in combined_text
+        
+        # Only skip if it's clearly an annual report WITHOUT any BRSR indicators
+        if has_annual and not has_brsr_indicators:
+            annual_results.append(result)
+            continue
+        
+        # Accept all other results (query includes "BRSR" so they should be relevant)
+        # Calculate comprehensive priority score - higher is better
+        priority = 0
+        
+        # Base priority: Google API returns results in relevance order, so earlier results are better
+        # Give higher priority to results that appear earlier in Google's ranking
+        priority += (len(pdf_results) - idx) * 2  # Earlier results get more points
+        
+        # Strong indicators of BRSR report
+        if 'brsr' in title:
+            priority += 15  # Very strong signal
+        if 'brsr' in link:
+            priority += 10  # Strong signal in URL
+        
+        # Standalone BRSR indicators
+        if 'standalone' in combined_text:
+            priority += 8
+        if 'standalone brsr' in combined_text:
+            priority += 12  # Even stronger
+        
+        # Business Responsibility / Sustainability indicators
+        if 'business responsibility' in title:
+            priority += 8
+        if 'sustainability report' in title or 'sustainability-report' in combined_text:
+            priority += 6
+        if 'sustainability' in title:
+            priority += 3
+        
+        # Year matching - higher priority if year appears in title/URL
+        if year_start in combined_text:
+            priority += 5
+        if year_end_short in combined_text:
+            priority += 3
+        if year.replace('-', '_') in combined_text or year.replace('-', '/') in combined_text:
+            priority += 6  # Year in various formats
+        
+        # Company name matching (partial match)
+        company_words = company_name.lower().split()
+        for word in company_words:
+            if len(word) > 3 and word in combined_text:  # Only meaningful words
+                priority += 2
+        
+        # URL patterns that suggest BRSR reports
+        if '/brsr/' in link or '/sustainability/' in link or '/csr/' in link:
+            priority += 7
+        if 'brsr' in link.split('/')[-1]:  # BRSR in filename
+            priority += 10
+        
+        # Negative signals (lower priority but don't exclude)
+        if has_annual:
+            priority -= 8  # Annual reports are lower priority but still considered
+        if 'annual' in title and 'brsr' not in combined_text:
+            priority -= 5
+        
+        # Store priority with result and log for debugging
+        result['_priority'] = priority
+        result['_index'] = idx  # Store original position
+        brsr_results.append(result)
+    
+    # Sort by priority (highest first)
+    brsr_results.sort(key=lambda x: x.get('_priority', 0), reverse=True)
+    
+    # Log top results for debugging
+    if brsr_results:
+        logger.info(f"Found {len(brsr_results)} result(s) (filtered {len(annual_results)} annual reports)")
+        logger.debug(f"Top 3 results by priority:")
+        for i, result in enumerate(brsr_results[:3], 1):
+            logger.debug(f"  {i}. Priority: {result.get('_priority', 0)}, Title: {result.get('title', 'N/A')[:60]}")
+    
+    # Use prioritized results (PDF validation will verify they're BRSR)
+    if brsr_results:
+        pdf_results = brsr_results
+        logger.info(f"Sorted {len(brsr_results)} result(s) by relevance, will try top results")
+    else:
+        error_msg = "No search results found after filtering"
+        logger.warning(f"{company_name} ({year}): {error_msg}")
+        return False, error_msg
+    
+    # Try to download and validate PDFs, starting with highest priority results
     for i, result in enumerate(pdf_results[:5], 1):  # Try up to 5 results
         pdf_url = result['link']
-        logger.info(f"Attempting to download PDF {i}/{len(pdf_results)}: {pdf_url}")
+        priority = result.get('_priority', 0)
+        logger.info(f"Attempting to download PDF {i}/{len(pdf_results)} (priority: {priority}): {pdf_url}")
         
         success, error = download_pdf(pdf_url, output_path)
         
@@ -317,15 +477,23 @@ def get_google_search_report(
                 with open(output_path_obj, 'rb') as f:
                     first_bytes = f.read(4)
                     if first_bytes == b'%PDF':
-                        logger.info(f"✓ Valid PDF downloaded from Google Search")
-                        return True, None
+                        # Quick validation: Try to extract some text and check for BRSR keywords
+                        is_likely_brsr = validate_pdf_is_brsr(output_path_obj)
+                        if is_likely_brsr:
+                            logger.info(f"✓ Valid BRSR PDF downloaded from Google Search (result {i})")
+                            return True, None
+                        else:
+                            logger.warning(f"Downloaded PDF doesn't appear to be a BRSR report (result {i}), trying next result...")
+                            output_path_obj.unlink()  # Delete incorrect PDF
                     else:
-                        logger.warning(f"Downloaded file is not a valid PDF, trying next result...")
+                        logger.warning(f"Downloaded file is not a valid PDF (result {i}), trying next result...")
                         output_path_obj.unlink()  # Delete invalid file
             else:
-                logger.warning(f"Downloaded file is too small, trying next result...")
+                logger.warning(f"Downloaded file is too small (result {i}), trying next result...")
+                if output_path_obj.exists():
+                    output_path_obj.unlink()
         
-        logger.debug(f"Download failed: {error}, trying next result...")
+        logger.debug(f"Download failed (result {i}): {error}, trying next result...")
     
     error_msg = "All PDF download attempts failed"
     logger.warning(f"{company_name} ({year}): {error_msg}")

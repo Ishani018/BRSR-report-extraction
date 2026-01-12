@@ -23,8 +23,67 @@ from config.config import (
 )
 
 from .nse_downloader import NSEDownloader, get_nse_report
+from .google_search_downloader import get_google_search_report
+from .bse_downloader import get_bse_report
 
 logger = logging.getLogger(__name__)
+
+
+def is_valid_pdf(pdf_path: Path) -> bool:
+    """
+    Quick validation to check if a PDF file exists and can be opened.
+    
+    Args:
+        pdf_path: Path to PDF file
+        
+    Returns:
+        True if PDF is valid and can be opened, False otherwise
+    """
+    if not pdf_path.exists():
+        return False
+    
+    # Check file size (must be at least 1KB)
+    try:
+        file_size = pdf_path.stat().st_size
+        if file_size < 1000:
+            return False
+    except Exception:
+        return False
+    
+    # Check PDF header
+    try:
+        with open(pdf_path, 'rb') as f:
+            first_bytes = f.read(4)
+            if first_bytes != b'%PDF':
+                return False
+    except Exception:
+        return False
+    
+    # Try to open and parse with pdfplumber (if available)
+    try:
+        import pdfplumber
+        with pdfplumber.open(pdf_path) as pdf:
+            if len(pdf.pages) == 0:
+                return False
+            # Try to access first page to ensure it's parseable
+            _ = pdf.pages[0]
+        return True
+    except ImportError:
+        # If pdfplumber not available, try PyMuPDF
+        try:
+            import fitz
+            doc = fitz.open(pdf_path)
+            if doc.page_count == 0:
+                doc.close()
+                return False
+            doc.close()
+            return True
+        except ImportError:
+            # If no PDF library available, just check header (less reliable)
+            return True
+    except Exception:
+        # PDF parsing failed - file is corrupted
+        return False
 
 
 def format_filename(company_name: str, year: str, is_standalone: bool = True, symbol: Optional[str] = None, serial_number: Optional[int] = None) -> str:
@@ -98,12 +157,14 @@ def download_brsr_report(
     output_base_dir: Path,
     serial_number: Optional[int] = None,
     naming_convention: Optional[str] = None,
-    nse_downloader: Optional[NSEDownloader] = None
+    nse_downloader: Optional[NSEDownloader] = None,
+    force_reload: bool = False
 ) -> Dict:
     """
-    Download BRSR report from NSE API only (no fallbacks).
+    Download BRSR report using Google Search first (prioritizes standalone BRSR), 
+    then NSE API and BSE as fallbacks.
     Structure: {output_base_dir}/{company_folder}/{year}/{filename}.pdf
-    Skips download if NSE API fails (no fallbacks).
+    Tries Google Search first (better for standalone BRSR), then NSE API, then BSE.
     
     Args:
         company_name: Company name (used for folder name)
@@ -144,7 +205,8 @@ def download_brsr_report(
         return {
             'success': False,
             'file_path': None,
-            'error': error_msg
+            'error': error_msg,
+            'report_type': None
         }
     
     # Format filename: Use naming_convention from Excel if provided, otherwise use default format
@@ -155,6 +217,26 @@ def download_brsr_report(
         # Replace common placeholders if they exist (case-insensitive) - these are useful dynamic values
         # Replace {year}, {YEAR}, {Year} with actual year
         filename = re.sub(r'\{year\}', year, filename, flags=re.IGNORECASE)
+        
+        # Replace hardcoded years in naming convention with the actual year being processed
+        # The Excel naming convention may have hardcoded years (e.g., "2023_24" or "2023-24") as examples
+        # We need to replace ANY year pattern with the actual year being processed
+        # Detect the format used in the naming convention (underscore or dash) and match it
+        
+        # First, check what format the naming convention uses for years
+        # Look for patterns like _2023_24 or 2023-24 in the filename
+        year_underscore = year.replace('-', '_')  # Convert "2023-24" to "2023_24"
+        
+        # Replace any 4-digit_2-digit year pattern (e.g., 2023_24, 2024_25) with actual year (underscore format)
+        filename = re.sub(r'\d{4}_\d{2}', year_underscore, filename)
+        # Replace any 4-digit-2-digit year pattern (e.g., 2023-24, 2024-25) with actual year (dash format)
+        filename = re.sub(r'\d{4}-\d{2}', year, filename)
+        # Replace any 4-digit_4-digit year pattern (e.g., 2023_2024, 2024_2025) with actual year (underscore format)
+        # Convert year like "2023-24" to "2023_2024" format
+        year_start = year.split('-')[0]  # Get "2023" from "2023-24"
+        year_end = year_start[:2] + year.split('-')[1]  # Get "2024" from "2023-24" -> "20" + "24"
+        filename = re.sub(r'\d{4}_\d{4}', f'{year_start}_{year_end}', filename)
+        
         # Replace {symbol}, {SYMBOL}, {Symbol} with actual symbol
         filename = re.sub(r'\{symbol\}', symbol.upper(), filename, flags=re.IGNORECASE)
         # Replace {serial}, {SERIAL}, {serial_number}, {SERIAL_NUMBER} with serial number if available
@@ -182,35 +264,117 @@ def download_brsr_report(
     
     output_path = year_dir / filename
     
-    # Check if already downloaded
+    # Check if already downloaded - if PDF exists, don't touch it (skip download)
+    # This protects existing PDFs from being replaced
     if output_path.exists():
-        logger.info(f"✓ Already downloaded: {company_folder}/{year}/{filename}")
+        logger.info(f"✓ PDF already exists, skipping download: {company_folder}/{year}/{filename}")
         return {
             'success': True,
             'file_path': str(output_path),
-            'error': None
+            'error': None,
+            'report_type': None  # Unknown for existing files (would need to check status CSV)
         }
     
-    # Attempt NSE API download
-    logger.debug(f"Attempting NSE API download for {company_name} ({symbol}) - {year}")
-    success, error = nse_downloader.download(symbol, output_path, year)
+    # Only attempt downloads if file doesn't exist or was corrupted (and deleted above)
+    # Try Google Search FIRST to prioritize finding standalone BRSR reports
+    # (Google Search is better at finding standalone BRSR reports than NSE API)
+    logger.debug(f"Attempting Google Search download for {company_name} ({symbol}) - {year}")
+    logger.info(f"  → Trying Google Search first (better for standalone BRSR reports)...")
     
-    if success:
-        logger.info(f"✓ Successfully downloaded: {company_folder}/{year}/{filename}")
-        return {
-            'success': True,
-            'file_path': str(output_path),
-            'error': None
-        }
-    else:
-        error_msg = error or "No results from NSE API"
-        logger.info(f"✗ Failed to download {company_name} ({year}): {error_msg}")
-        # Skip if fails - no fallbacks
-        return {
-            'success': False,
-            'file_path': None,
-            'error': error_msg
-        }
+    try:
+        success_google, error_google = get_google_search_report(
+            company_name=company_name,
+            website="",  # Empty website - will use company name search
+            year=year,
+            output_path=output_path
+        )
+        
+        if success_google:
+            logger.info(f"✓ Successfully downloaded via Google Search: {company_folder}/{year}/{filename}")
+            return {
+                'success': True,
+                'file_path': str(output_path),
+                'error': None,
+                'report_type': 'Unknown'  # Fallback downloaders don't detect type
+            }
+        else:
+            # Fallback 1: Try NSE API (may have Annual Reports with BRSR sections)
+            logger.info(f"  → Google Search failed, trying NSE API fallback...")
+            logger.debug(f"Attempting NSE API download for {company_name} ({symbol}) - {year}")
+            success, error, report_type = nse_downloader.download(symbol, output_path, year)
+            
+            if success:
+                logger.info(f"✓ Successfully downloaded via NSE API: {company_folder}/{year}/{filename}")
+                return {
+                    'success': True,
+                    'file_path': str(output_path),
+                    'error': None,
+                    'report_type': report_type
+                }
+            else:
+                error_msg = error or "No results from NSE API"
+                # Fallback 2: Try BSE (many companies list on both exchanges)
+                logger.info(f"  → NSE failed, trying BSE fallback...")
+                try:
+                    success_bse, error_bse = get_bse_report(
+                        company_name=company_name,
+                        symbol=symbol,  # Many companies use same symbol on both exchanges
+                        year=year,
+                        output_path=output_path
+                    )
+                    
+                    if success_bse:
+                        logger.info(f"✓ Successfully downloaded via BSE: {company_folder}/{year}/{filename}")
+                        return {
+                            'success': True,
+                            'file_path': str(output_path),
+                            'error': None,
+                            'report_type': 'Unknown'  # Fallback downloaders don't detect type
+                        }
+                    else:
+                        error_msg = f"Google Search failed: {error_google}; NSE failed: {error_msg}; BSE failed: {error_bse}"
+                        logger.info(f"✗ All download methods failed for {company_name} ({year})")
+                        return {
+                            'success': False,
+                            'file_path': None,
+                            'error': error_msg,
+                            'report_type': None
+                        }
+                except Exception as e:
+                    error_msg = f"Google Search failed: {error_google}; NSE failed: {error_msg}; BSE exception: {str(e)}"
+                    logger.warning(f"BSE fallback failed with exception: {e}")
+                    return {
+                        'success': False,
+                        'file_path': None,
+                        'error': error_msg,
+                        'report_type': None
+                    }
+    except Exception as e:
+        error_msg = f"Google Search exception: {str(e)}"
+        logger.warning(f"Google Search failed with exception: {e}")
+        # Try NSE as fallback even if Google Search had an exception
+        logger.info(f"  → Trying NSE API fallback after Google Search exception...")
+        logger.debug(f"Attempting NSE API download for {company_name} ({symbol}) - {year}")
+        success, error, report_type = nse_downloader.download(symbol, output_path, year)
+        
+        if success:
+            logger.info(f"✓ Successfully downloaded via NSE API: {company_folder}/{year}/{filename}")
+            return {
+                'success': True,
+                'file_path': str(output_path),
+                'error': None,
+                'report_type': report_type
+            }
+        else:
+            error_msg_nse = error or "No results from NSE API"
+            error_msg = f"Google Search exception: {error_msg}; NSE failed: {error_msg_nse}"
+            logger.info(f"✗ All download methods failed for {company_name} ({year})")
+            return {
+                'success': False,
+                'file_path': None,
+                'error': error_msg,
+                'report_type': None
+            }
 
 
 class DownloadManager:
@@ -317,7 +481,8 @@ class DownloadManager:
         symbol: str,
         year: str,
         serial_number: Optional[int] = None,
-        naming_convention: Optional[str] = None
+        naming_convention: Optional[str] = None,
+        force_reload: bool = False
     ) -> Dict:
         """
         Download BRSR report for single company/year.
@@ -340,7 +505,8 @@ class DownloadManager:
             output_base_dir=self.output_base_dir,
             serial_number=serial_number,
             naming_convention=naming_convention,
-            nse_downloader=self.nse_downloader
+            nse_downloader=self.nse_downloader,
+            force_reload=force_reload
         )
         
         # Add metadata
@@ -360,6 +526,7 @@ class DownloadManager:
             'status': result['status'],
             'error': result.get('error', ''),
             'file_path': result.get('file_path', ''),
+            'report_type': result.get('report_type', ''),
             'timestamp': result['timestamp']
         }
         
@@ -391,7 +558,8 @@ class DownloadManager:
         resume: bool = True,
         batch_size: int = 10,
         num_batches: Optional[int] = None,
-        start_from_batch: int = 0
+        start_from_batch: int = 0,
+        force_reload: bool = False
     ) -> Dict:
         """
         Batch download BRSR reports for multiple companies and years.
@@ -400,10 +568,11 @@ class DownloadManager:
         Args:
             companies_df: DataFrame with company information (must have: company_name, symbol, serial_number)
             years: List of financial years (defaults to config years)
-            resume: If True, skip already downloaded files
+            resume: If True, skip already downloaded files (ignored if force_reload=True)
             batch_size: Number of companies to process in each batch (default: 10)
             num_batches: Number of batches to process (None = all remaining, or specific number)
             start_from_batch: Batch number to start from (0-indexed, for resuming)
+            force_reload: If True, re-download all files even if they already exist
             
         Returns:
             Summary dictionary with statistics including next batch start info
@@ -457,7 +626,8 @@ class DownloadManager:
             company_tasks = []
             for year in years:
                 # Check if already downloaded (uses company-based folder structure)
-                if resume and self.is_downloaded(symbol, year, serial_number=serial_number):
+                # Skip this check if force_reload=True (we want to re-download everything)
+                if resume and not force_reload and self.is_downloaded(symbol, year, serial_number=serial_number):
                     logger.debug(f"Skipping {company_name} ({year}) - already downloaded")
                     continue
                 
@@ -601,7 +771,8 @@ class DownloadManager:
                         task['symbol'],
                         task['year'],
                         task.get('serial_number'),
-                        task.get('naming_convention')
+                        task.get('naming_convention'),
+                        force_reload
                     ): task
                     for task in batch_tasks
                 }
@@ -736,7 +907,8 @@ def batch_download(
     max_workers: int = NSE_MAX_CONCURRENT,
     batch_size: int = 10,
     num_batches: Optional[int] = None,
-    start_from_batch: int = 0
+    start_from_batch: int = 0,
+    force_reload: bool = False
 ) -> Dict:
     """
     Convenience function for batch downloading BRSR reports.
@@ -745,11 +917,12 @@ def batch_download(
         companies_df: DataFrame with company information
         years: List of financial years
         output_base_dir: Base directory for downloads
-        resume: If True, skip already downloaded files
+        resume: If True, skip already downloaded files (ignored if force_reload=True)
         max_workers: Maximum concurrent downloads
         batch_size: Number of companies to process in each batch (default: 10)
         num_batches: Number of batches to process (None = all remaining, or specific number)
         start_from_batch: Batch number to start from (0-indexed, for resuming)
+        force_reload: If True, re-download all files even if they already exist
         
     Returns:
         Summary dictionary
@@ -759,7 +932,7 @@ def batch_download(
         max_workers=max_workers
     )
     
-    return manager.batch_download(companies_df, years, resume, batch_size, num_batches, start_from_batch)
+    return manager.batch_download(companies_df, years, resume, batch_size, num_batches, start_from_batch, force_reload)
 
 
 if __name__ == "__main__":

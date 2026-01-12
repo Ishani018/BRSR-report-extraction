@@ -4,7 +4,7 @@ Module for exporting processed data to various formats.
 import logging
 import json
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from datetime import datetime
 
 from docx import Document
@@ -48,18 +48,35 @@ def create_output_directory(company_name: str, year: str, brsr_mode: bool = Fals
     return output_path
 
 
-def create_brsr_output_directory(company_name: str, year: str) -> Path:
+def create_brsr_output_directory(
+    company_name: str, 
+    year: str,
+    symbol: Optional[str] = None,
+    serial_number: Optional[int] = None
+) -> Path:
     """
     Create BRSR-specific output directory structure.
+    Uses {serial_number}_{SYMBOL} format like downloads if available.
     
     Args:
         company_name: Name of the company
         year: Financial year (e.g., '2022-23')
+        symbol: Optional company symbol
+        serial_number: Optional serial number
         
     Returns:
-        Path to the output directory (outputs/{year}/{CompanyName}/)
+        Path to the output directory (outputs/{year}/{serial_number}_{SYMBOL}/ or outputs/{year}/{CompanyName}/)
     """
-    return create_output_directory(company_name, year, brsr_mode=True)
+    if symbol and serial_number is not None:
+        # Use {serial_number}_{SYMBOL} format like downloads
+        company_folder = f"{serial_number}_{symbol.upper()}"
+        output_path = OUTPUT_BASE_DIR / year / company_folder
+        output_path.mkdir(parents=True, exist_ok=True)
+        logger.info(f"Created output directory: {output_path}")
+        return output_path
+    else:
+        # Fallback to company name format
+        return create_output_directory(company_name, year, brsr_mode=True)
 
 
 def export_to_docx(
@@ -136,7 +153,10 @@ def export_brsr_to_docx(
     company_name: str,
     year: str,
     is_standalone: bool = True,
-    is_from_annual: bool = False
+    is_from_annual: bool = False,
+    naming_convention: Optional[str] = None,
+    symbol: Optional[str] = None,
+    serial_number: Optional[int] = None
 ) -> Path:
     """
     Export BRSR content to DOCX with standardized naming.
@@ -148,6 +168,9 @@ def export_brsr_to_docx(
         year: Financial year
         is_standalone: True if standalone BRSR
         is_from_annual: True if extracted from annual report
+        naming_convention: Optional naming convention from Excel
+        symbol: Optional company symbol for naming convention
+        serial_number: Optional serial number for naming convention
         
     Returns:
         Path to the created DOCX file
@@ -160,7 +183,8 @@ def export_brsr_to_docx(
     
     # Format filename
     filename = format_brsr_output_filename(
-        company_name, year, is_standalone, is_from_annual, 'docx'
+        company_name, year, is_standalone, is_from_annual, 'docx',
+        naming_convention=naming_convention, symbol=symbol, serial_number=serial_number
     )
     docx_path = output_path / filename
     

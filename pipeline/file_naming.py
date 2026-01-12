@@ -77,10 +77,14 @@ def format_brsr_output_filename(
     year: str,
     is_standalone: bool = True,
     is_from_annual: bool = False,
-    file_type: str = "docx"
+    file_type: str = "docx",
+    naming_convention: Optional[str] = None,
+    symbol: Optional[str] = None,
+    serial_number: Optional[int] = None
 ) -> str:
     """
     Format filename for processed BRSR output.
+    Uses naming convention from Excel if provided, otherwise uses default format.
     
     Args:
         company_name: Company name
@@ -88,10 +92,49 @@ def format_brsr_output_filename(
         is_standalone: True if standalone BRSR, False if embedded
         is_from_annual: True if extracted from annual report
         file_type: Output file type ('docx', 'json', 'metadata')
+        naming_convention: Optional naming convention from Excel (preserves exact format)
+        symbol: Optional company symbol for placeholder replacement
+        serial_number: Optional serial number for placeholder replacement
         
     Returns:
         Formatted filename
     """
+    # If naming convention is provided, use it (like downloads do)
+    if naming_convention and naming_convention.strip():
+        # Use exact naming convention from Excel/CSV - preserve as-is
+        filename = naming_convention.strip()
+        
+        # Replace common placeholders if they exist (case-insensitive)
+        # Replace {year}, {YEAR}, {Year} with actual year
+        filename = re.sub(r'\{year\}', year, filename, flags=re.IGNORECASE)
+        # Replace {symbol}, {SYMBOL}, {Symbol} with actual symbol
+        if symbol:
+            filename = re.sub(r'\{symbol\}', symbol.upper(), filename, flags=re.IGNORECASE)
+        # Replace {serial}, {SERIAL}, {serial_number}, {SERIAL_NUMBER} with serial number if available
+        if serial_number is not None:
+            filename = re.sub(r'\{serial(_number)?\}', str(serial_number), filename, flags=re.IGNORECASE)
+        
+        # ONLY remove strictly illegal filesystem characters to prevent crashes
+        illegal_chars = ['/', '\\', ':', '*', '?', '"', '<', '>', '|']
+        for char in illegal_chars:
+            filename = filename.replace(char, '')
+        
+        # Strip ONLY leading/trailing whitespace (preserve internal spaces)
+        filename = filename.strip()
+        
+        # Remove .pdf extension if present (we'll add the correct extension)
+        if filename.lower().endswith('.pdf'):
+            filename = filename[:-4]
+        
+        # Add appropriate extension based on file_type
+        if file_type == "metadata":
+            filename = f"{filename}_metadata.json"
+        else:
+            filename = f"{filename}.{file_type}"
+        
+        return filename
+    
+    # Fall back to default format if no naming convention
     cleaned_name = clean_company_name(company_name)
     
     if is_from_annual:

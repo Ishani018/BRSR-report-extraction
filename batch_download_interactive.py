@@ -173,6 +173,17 @@ def interactive_batch_download():
     print(f"  📄 Total download tasks: ~{total_companies_in_batches * len(BRSR_FINANCIAL_YEARS)} PDFs")
     print("="*80)
     
+    # Ask about force reload
+    print("")
+    print("4. FORCE RELOAD: Re-download all files even if already downloaded?")
+    print("   (This will delete existing files and download fresh copies)")
+    force_reload_input = input("   Force reload? [y/N]: ").strip().lower()
+    force_reload = force_reload_input == 'y'
+    if force_reload:
+        print("   → Will re-download ALL files (existing files will be replaced)")
+    else:
+        print("   → Will skip files that are already downloaded (default)")
+    
     confirm = input("\nProceed with download? [y/N]: ").strip().lower()
     if confirm != 'y':
         logger.info("Download cancelled by user.")
@@ -181,12 +192,15 @@ def interactive_batch_download():
     # Step 5: Run batch download
     logger.info("")
     logger.info("Starting batch download...")
+    if force_reload:
+        logger.info("FORCE RELOAD MODE: All existing files will be re-downloaded")
     logger.info("")
     
     summary = download_manager.batch_download(
         companies_df=companies_df,
         years=BRSR_FINANCIAL_YEARS,
         resume=True,
+        force_reload=force_reload,
         batch_size=batch_size,
         num_batches=num_batches,
         start_from_batch=start_from_batch
@@ -203,9 +217,10 @@ def interactive_batch_download():
     logger.info(f"Success rate: {summary['success_rate']:.1f}%")
     logger.info("")
     
-    if summary['companies_processed'] < summary['total_companies']:
-        logger.info(f"Remaining companies: {summary['total_companies'] - summary['companies_processed']}")
-        logger.info(f"To continue, run again with start_from_batch={summary['next_batch_start']}")
+    if summary.get('companies_processed_in_run', 0) < summary.get('total_companies_in_run', 0):
+        remaining = summary.get('total_companies_in_run', 0) - summary.get('companies_processed_in_run', 0)
+        logger.info(f"Remaining companies: {remaining}")
+        logger.info(f"To continue, run again with start_from_batch={summary.get('next_batch_start', 0)}")
     else:
         logger.info("All companies processed!")
     
