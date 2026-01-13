@@ -85,6 +85,18 @@ GOOGLE_SEARCH_ENGINE_ID = os.getenv('GOOGLE_SEARCH_ENGINE_ID', '')  # Optional: 
 GOOGLE_SEARCH_TIMEOUT = 10  # seconds
 GOOGLE_SEARCH_MAX_RESULTS = 10  # max results to check
 
+# Negative Keywords for Junk Filtering (used in Google Search downloader)
+NEGATIVE_KEYWORDS = [
+    "investor presentation",
+    "earnings call",
+    "transcript",
+    "press release",
+    "media release",
+    "brief",
+    "result update",
+    "corporate presentation"
+]
+
 # Download Settings
 DOWNLOAD_BASE_DIR = BASE_DIR.parent / "brsr_reports" / "downloads"
 OUTPUT_BASE_DIR = BASE_DIR.parent / "brsr_reports" / "outputs"
