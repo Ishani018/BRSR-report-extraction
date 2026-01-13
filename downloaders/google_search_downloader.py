@@ -237,15 +237,19 @@ def score_search_result(result: Dict) -> int:
             logger.debug(f"Junk detected (word pattern) in '{result.get('title', 'N/A')[:50]}': {word}")
             return -1000  # Kill immediately
     
-    # Trust the Title: Strong positive signals (title is more reliable than URL)
-    if 'business responsibility' in title or 'brsr' in title or 'sustainability report' in title:
+    # STRICT POLICY: Standalone BRSR Only - Penalize Annual Reports and Integrated Reports
+    # Only reward standalone BRSR-related keywords
+    if 'business responsibility' in title or 'brsr' in title or 'sustainability report' in title or 'esg report' in title:
         score += 100
     
-    if 'integrated report' in title:
-        score += 50
+    # Penalize Annual Reports and Integrated Reports (treat as junk)
+    if 'integrated report' in title or 'integrated annual report' in title:
+        logger.debug(f"Penalizing Integrated Report in '{result.get('title', 'N/A')[:50]}'")
+        return -1000  # Kill immediately - not a standalone BRSR
     
     if 'annual report' in title:
-        score += 30
+        logger.debug(f"Penalizing Annual Report in '{result.get('title', 'N/A')[:50]}'")
+        return -1000  # Kill immediately - not a standalone BRSR
     
     # Link scoring: Only trust specific keywords, ignore gibberish filenames
     # Do NOT give points for keywords in link unless it's strictly "brsr" or "sustainability"
@@ -262,7 +266,7 @@ def score_search_result(result: Dict) -> int:
 
 def validate_pdf_is_brsr(pdf_path: Path, company_name: str, year: str) -> bool:
     """
-    Strict 3-point validation to verify PDF is the correct BRSR report for the company and year.
+    Extremely thorough 4-layer forensic validation to verify PDF is the correct standalone BRSR report.
     
     Args:
         pdf_path: Path to PDF file
@@ -270,118 +274,294 @@ def validate_pdf_is_brsr(pdf_path: Path, company_name: str, year: str) -> bool:
         year: Financial year to verify (e.g., "2023-24")
         
     Returns:
-        True only if ALL checks pass:
-        - Check 1: Contains BRSR content keywords
-        - Check 2: Contains company name (at least one significant word)
-        - Check 3: Contains the year (full year or start/end years)
+        True only if ALL 4 layers pass:
+        - Layer 1: Cover Page Check (year on pages 1-2)
+        - Layer 2: Sector-Aware Company Match (on pages 1-3)
+        - Layer 3: Report Type DNA Check (BRSR structure, no Annual Report)
+        - Layer 4: Year Dominance Check (full 15-page scan)
     """
     try:
-        # Extract text from first 5 pages
-        text_sample = ""
+        # Setup & Extraction: Read first 15 pages
+        pages_text = []  # List to store each page's text separately
+        page1_text = ""
+        page2_text = ""
+        pages_1_2_text = ""  # Combined text from pages 1-2 for cover page check
+        pages_1_3_text = ""  # Combined text from pages 1-3 for company check
+        full_text_15 = ""  # Full text from first 15 pages for year dominance
+        
+        pdf_metadata = None
+        page_count = 0
         
         # Try pdfplumber first
         try:
             import pdfplumber
             with pdfplumber.open(pdf_path) as pdf:
-                # Extract text from first 5 pages
-                for page_num in range(min(5, len(pdf.pages))):
+                # Page count check: Standalone BRSRs are usually < 100 pages, reject > 150 pages
+                page_count = len(pdf.pages)
+                if page_count > 150:
+                    logger.debug(f"Setup failed: PDF has {page_count} pages (Standalone BRSRs are typically < 100 pages, > 150 suggests Annual Report)")
+                    return False
+                
+                # Read PDF metadata (Title field as fallback)
+                pdf_metadata = pdf.metadata if hasattr(pdf, 'metadata') else None
+                
+                # Extract text from first 15 pages, keeping pages separate
+                for page_num in range(min(15, len(pdf.pages))):
                     page = pdf.pages[page_num]
-                    text_sample += page.extract_text() or ""
+                    page_text = page.extract_text() or ""
+                    pages_text.append(page_text)
+                    full_text_15 += page_text
+                    
+                    if page_num == 0:
+                        page1_text = page_text
+                    elif page_num == 1:
+                        page2_text = page_text
+                
+                # Combine pages 1-2 for cover page check
+                pages_1_2_text = page1_text + page2_text
+                
+                # Combine pages 1-3 for company check
+                pages_1_3_text = page1_text + page2_text
+                if len(pages_text) > 2:
+                    pages_1_3_text += pages_text[2]
+                    
         except ImportError:
             # Fallback to PyMuPDF if pdfplumber not available
             try:
                 import fitz
                 doc = fitz.open(pdf_path)
-                for page_num in range(min(5, len(doc))):
+                
+                # Page count check
+                page_count = len(doc)
+                if page_count > 150:
+                    logger.debug(f"Setup failed: PDF has {page_count} pages (Standalone BRSRs are typically < 100 pages, > 150 suggests Annual Report)")
+                    doc.close()
+                    return False
+                
+                # Read PDF metadata
+                pdf_metadata = doc.metadata if hasattr(doc, 'metadata') else None
+                
+                # Extract text from first 15 pages
+                for page_num in range(min(15, len(doc))):
                     page = doc[page_num]
-                    text_sample += page.get_text() or ""
+                    page_text = page.get_text() or ""
+                    pages_text.append(page_text)
+                    full_text_15 += page_text
+                    
+                    if page_num == 0:
+                        page1_text = page_text
+                    elif page_num == 1:
+                        page2_text = page_text
+                
+                # Combine pages 1-2 and 1-3
+                pages_1_2_text = page1_text + page2_text
+                pages_1_3_text = page1_text + page2_text
+                if len(pages_text) > 2:
+                    pages_1_3_text += pages_text[2]
+                
                 doc.close()
             except ImportError:
                 logger.warning("No PDF library available, cannot validate PDF content")
                 return False
         
-        if not text_sample:
-            logger.debug("Could not extract text from PDF")
+        if not full_text_15:
+            logger.debug("Setup failed: Could not extract text from PDF")
             return False
         
-        text_lower = text_sample.lower()
+        # Convert to lowercase for matching
+        page1_lower = page1_text.lower()
+        pages_1_2_lower = pages_1_2_text.lower()
+        pages_1_3_lower = pages_1_3_text.lower()
+        full_text_lower = full_text_15.lower()
         
-        # Check 1 (Content): Must contain BRSR-related keywords
-        content_keywords = [
-            'business responsibility',
-            'brsr',
-            'sustainability report',
-            'section a'
-        ]
-        has_content = any(keyword in text_lower for keyword in content_keywords)
+        # ====================================================================
+        # LAYER 1: The "Cover Page" Check (Pages 1-2 Only)
+        # ====================================================================
+        # Build year patterns for cover page check
+        year_parts = year.split('-') if '-' in year else [year]
+        year_start = year_parts[0] if year_parts else ""
+        year_end_short = year_parts[1] if len(year_parts) > 1 else ""
         
-        if not has_content:
-            logger.debug("Check 1 failed: PDF does not contain BRSR content keywords")
+        target_year_patterns = []
+        if year_end_short:
+            target_year_patterns.extend([year, year.replace('-', '_'), year.replace('-', '/')])
+            target_year_patterns.extend([f"fy{year_end_short}", f"fy {year_end_short}", f"fy-{year_end_short}"])
+        
+        if year_start and year_end_short:
+            try:
+                start_int = int(year_start)
+                end_int = start_int + 1
+                full_year_format = f"{start_int}-{end_int}"
+                target_year_patterns.extend([full_year_format, full_year_format.replace('-', '_'), full_year_format.replace('-', '/')])
+            except ValueError:
+                pass
+        
+        # Check if target year appears on pages 1-2
+        year_found_on_cover = False
+        for pattern in target_year_patterns:
+            if pattern.lower() in pages_1_2_lower:
+                year_found_on_cover = True
+                break
+        
+        if not year_found_on_cover:
+            logger.warning(f"Layer 1 failed: Target year {year} not found on cover pages (pages 1-2)")
             return False
         
-        # Check 2 (Company): Must contain at least one significant word from company name
-        # Ignore common words: Limited, Ltd, India, Private, Public, Corporation, Corp, etc.
+        # ====================================================================
+        # LAYER 2: Strict "Sector-Aware" Company Match
+        # ====================================================================
+        # Clean company name (remove common words)
         common_words = {
             'limited', 'ltd', 'ltd.', 'india', 'private', 'public', 'corporation', 
             'corp', 'corp.', 'inc', 'inc.', 'incorporated', 'company', 'co', 'co.',
             'industries', 'group', 'enterprises', 'solutions', 'services', 'systems'
         }
         
-        # Extract significant words from company name
         company_words = company_name.lower().split()
-        significant_words = [word for word in company_words if len(word) > 2 and word not in common_words]
+        cleaned_words = [word.rstrip('.,;:') for word in company_words 
+                        if len(word.rstrip('.,;:')) > 2 and word.rstrip('.,;:') not in common_words]
         
-        # Remove common suffixes/prefixes
-        significant_words = [
-            word.rstrip('.,;:') for word in significant_words 
-            if word.rstrip('.,;:') not in common_words
-        ]
+        # Blacklist generic sector names
+        generic_names = {'bank', 'power', 'infra', 'finance', 'capital', 'global', 'infrastructure', 
+                        'financial', 'insurance', 'cement', 'pharma', 'pharmaceuticals', 'energy', 
+                        'realty', 'housing', 'holdings', 'investment'}
         
-        # Check if at least one significant word appears in the text
-        has_company = False
-        if significant_words:
-            has_company = any(word in text_lower for word in significant_words)
+        # Check if cleaned name is generic
+        is_generic = len(cleaned_words) == 1 and cleaned_words[0] in generic_names
+        
+        if is_generic:
+            # For generic names, require full original company name on pages 1-3
+            company_name_lower = company_name.lower()
+            has_full_name = company_name_lower in pages_1_3_lower
+            if not has_full_name:
+                logger.warning(f"Layer 2 failed: Generic company name '{cleaned_words[0]}' requires full name '{company_name}' on pages 1-3, not found")
+                return False
         else:
-            # If no significant words (edge case), check if any company word appears
-            has_company = any(word in text_lower for word in company_words if len(word) > 2)
+            # For non-generic names, require all cleaned words on pages 1-3
+            found_words = []
+            for word in cleaned_words:
+                if word in pages_1_3_lower:
+                    found_words.append(word)
+            
+            if len(found_words) < len(cleaned_words):
+                logger.warning(f"Layer 2 failed: Company name match incomplete (required: {cleaned_words}, found: {found_words} on pages 1-3)")
+                return False
         
-        if not has_company:
-            logger.debug(f"Check 2 failed: PDF does not contain company name (checked: {significant_words[:3]})")
+        # ====================================================================
+        # LAYER 3: The "Report Type" DNA Check
+        # ====================================================================
+        # Must-Have 1: "Section A" AND ("General Information" OR "Details of the Listed Entity")
+        has_section_a = 'section a' in full_text_lower
+        has_general_info = 'general information' in full_text_lower
+        has_listed_entity = 'details of the listed entity' in full_text_lower
+        
+        if not has_section_a:
+            logger.warning("Layer 3 failed: PDF does not contain 'Section A'")
             return False
         
-        # Check 3 (Year): Must contain the year (e.g., "2023-24") OR start/end years (e.g., "2023" and "2024")
-        year_parts = year.split('-') if '-' in year else [year]
-        year_start = year_parts[0] if year_parts else ""
-        year_end_short = year_parts[1] if len(year_parts) > 1 else ""
+        if not (has_general_info or has_listed_entity):
+            logger.warning("Layer 3 failed: PDF does not contain 'General Information' or 'Details of the Listed Entity'")
+            return False
         
-        # Calculate end year from start year (e.g., 2023 -> 2024)
-        year_end = ""
-        if year_start and year_end_short:
-            # Extract last two digits of start year
+        # Must-Have 2: "Principle" (e.g., "Principle 1", "Principle 9")
+        has_principle = 'principle' in full_text_lower
+        if not has_principle:
+            logger.warning("Layer 3 failed: PDF does not contain 'Principle' (e.g., Principle 1, Principle 9)")
+            return False
+        
+        # Rejection: Junk documents
+        junk_indicators = ['investor presentation', 'earnings call', 'transcript', 'press release']
+        for indicator in junk_indicators:
+            if indicator in full_text_lower:
+                logger.warning(f"Layer 3 failed: PDF contains junk indicator '{indicator}'")
+                return False
+        
+        # Strict "No Annual Report" Rule: Check Page 1
+        if page1_lower:
+            # Check for "Integrated Annual Report" or "Annual Report 20..." (but allow "Extract" or "Annexure")
+            if 'integrated annual report' in page1_lower:
+                logger.warning("Layer 3 failed: Page 1 contains 'Integrated Annual Report'")
+                return False
+            
+            # Check for "Annual Report 20..." but exclude if it's an extract/annexure
+            if 'annual report 20' in page1_lower:
+                # Allow if it's clearly an extract or annexure
+                if 'extract' not in page1_lower and 'annexure' not in page1_lower:
+                    logger.warning("Layer 3 failed: Page 1 contains 'Annual Report 20...' (not an extract/annexure)")
+                    return False
+        
+        # Also check full text for "Integrated Annual Report"
+        if 'integrated annual report' in full_text_lower:
+            logger.warning("Layer 3 failed: PDF contains 'Integrated Annual Report'")
+            return False
+        
+        # ====================================================================
+        # LAYER 4: Year Dominance (Full Text - 15 Pages)
+        # ====================================================================
+        # Calculate previous year
+        previous_year = ""
+        if year_start:
             try:
                 start_year_int = int(year_start)
-                # End year is next year (e.g., 2023-24 means 2023 to 2024)
-                year_end = str(start_year_int + 1)
+                prev_start = str(start_year_int - 1)
+                if year_end_short:
+                    prev_end_short = str(int(year_end_short) - 1)
+                    if len(prev_end_short) == 1:
+                        prev_end_short = '0' + prev_end_short
+                    previous_year = f"{prev_start}-{prev_end_short}"
             except ValueError:
                 pass
         
-        # Check for year in various formats
-        has_year = False
-        if year in text_sample or year.replace('-', '_') in text_sample or year.replace('-', '/') in text_sample:
-            has_year = True
-        elif year_start and year_end and year_start in text_sample and year_end in text_sample:
-            # Both start and end years present (e.g., "2023" and "2024")
-            has_year = True
-        elif year_start and year_start in text_sample:
-            # At least start year present
-            has_year = True
+        # Build year patterns for full text scan
+        target_year_strings = []
+        previous_year_strings = []
         
-        if not has_year:
-            logger.debug(f"Check 3 failed: PDF does not contain year {year} (checked for: {year}, {year_start}, {year_end})")
+        if year_end_short:
+            target_year_strings.extend([year, year.replace('-', '_'), year.replace('-', '/')])
+            target_year_strings.extend([f"fy{year_end_short}", f"fy {year_end_short}", f"fy-{year_end_short}"])
+            if previous_year:
+                previous_year_strings.extend([previous_year, previous_year.replace('-', '_'), previous_year.replace('-', '/')])
+                prev_end = previous_year.split('-')[1] if '-' in previous_year else ""
+                if prev_end:
+                    previous_year_strings.extend([f"fy{prev_end}", f"fy {prev_end}", f"fy-{prev_end}"])
+        
+        if year_start and year_end_short:
+            try:
+                start_int = int(year_start)
+                end_int = start_int + 1
+                full_year_format = f"{start_int}-{end_int}"
+                target_year_strings.extend([full_year_format, full_year_format.replace('-', '_'), full_year_format.replace('-', '/')])
+                
+                if previous_year:
+                    prev_start_int = start_int - 1
+                    prev_end_int = prev_start_int + 1
+                    prev_full_format = f"{prev_start_int}-{prev_end_int}"
+                    previous_year_strings.extend([prev_full_format, prev_full_format.replace('-', '_'), prev_full_format.replace('-', '/')])
+            except ValueError:
+                pass
+        
+        # Count occurrences across all 15 pages
+        target_year_count = 0
+        previous_year_count = 0
+        
+        for year_str in target_year_strings:
+            target_year_count += full_text_lower.count(year_str.lower())
+        
+        for year_str in previous_year_strings:
+            previous_year_count += full_text_lower.count(year_str.lower())
+        
+        # Year Dominance Check: Reject if previous year appears significantly more
+        if previous_year_count > target_year_count:
+            logger.warning(f"Layer 4 failed: Year dominance check failed (target {year}: {target_year_count}, previous {previous_year}: {previous_year_count})")
             return False
         
-        # All checks passed
-        logger.debug("All 3 validation checks passed")
+        # Must have at least one occurrence of target year
+        if target_year_count == 0:
+            logger.warning(f"Layer 4 failed: Target year {year} not found in full 15-page scan")
+            return False
+        
+        # All 4 layers passed
+        logger.debug(f"All 4 validation layers passed (company: {cleaned_words if not is_generic else 'full name'}, year: {year} found {target_year_count}x, pages: {page_count})")
         return True
         
     except Exception as e:
@@ -559,19 +739,19 @@ def get_google_search_report(
                     temp_path.unlink()
                     continue
             
-            # CRITICAL: Strict 3-point validation (Content, Company, Year)
+            # CRITICAL: Strict 4-layer forensic validation (Cover Page, Company, Report Type DNA, Year Dominance)
             is_valid_brsr = validate_pdf_is_brsr(temp_path, company_name, year)
             
             if is_valid_brsr:
-                # Valid BRSR report for correct company and year - move to final location
+                # Valid standalone BRSR report for correct company and year - move to final location
                 if output_path_obj.exists():
                     output_path_obj.unlink()  # Remove existing file if any
                 temp_path.rename(output_path_obj)
-                logger.info(f"✓ Success: Valid BRSR PDF downloaded and validated (candidate {i}, score: {score})")
+                logger.info(f"✓ Success: Valid standalone BRSR PDF downloaded and validated (candidate {i}, score: {score})")
                 return True, None
             else:
-                # Validation failed - wrong company/year or not a BRSR report
-                logger.warning(f"Validation Failed (Wrong Company/Year): Candidate {i} failed 3-point check, trying next candidate...")
+                # Validation failed - wrong company/year, not a standalone BRSR, or failed one of the 4 layers
+                logger.warning(f"Validation Failed: Candidate {i} failed 4-layer forensic check (Cover Page/Company/Report Type/Year), trying next candidate...")
                 temp_path.unlink()
                 continue
                 

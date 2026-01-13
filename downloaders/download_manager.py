@@ -295,86 +295,31 @@ def download_brsr_report(
                 'success': True,
                 'file_path': str(output_path),
                 'error': None,
-                'report_type': 'Unknown'  # Fallback downloaders don't detect type
+                'report_type': 'BRSR'  # Google Search only returns standalone BRSR
             }
         else:
-            # Fallback 1: Try NSE API (may have Annual Reports with BRSR sections)
-            logger.info(f"  → Google Search failed, trying NSE API fallback...")
-            logger.debug(f"Attempting NSE API download for {company_name} ({symbol}) - {year}")
-            success, error, report_type = nse_downloader.download(symbol, output_path, year)
-            
-            if success:
-                logger.info(f"✓ Successfully downloaded via NSE API: {company_folder}/{year}/{filename}")
-                return {
-                    'success': True,
-                    'file_path': str(output_path),
-                    'error': None,
-                    'report_type': report_type
-                }
-            else:
-                error_msg = error or "No results from NSE API"
-                # Fallback 2: Try BSE (many companies list on both exchanges)
-                logger.info(f"  → NSE failed, trying BSE fallback...")
-                try:
-                    success_bse, error_bse = get_bse_report(
-                        company_name=company_name,
-                        symbol=symbol,  # Many companies use same symbol on both exchanges
-                        year=year,
-                        output_path=output_path
-                    )
-                    
-                    if success_bse:
-                        logger.info(f"✓ Successfully downloaded via BSE: {company_folder}/{year}/{filename}")
-                        return {
-                            'success': True,
-                            'file_path': str(output_path),
-                            'error': None,
-                            'report_type': 'Unknown'  # Fallback downloaders don't detect type
-                        }
-                    else:
-                        error_msg = f"Google Search failed: {error_google}; NSE failed: {error_msg}; BSE failed: {error_bse}"
-                        logger.info(f"✗ All download methods failed for {company_name} ({year})")
-                        return {
-                            'success': False,
-                            'file_path': None,
-                            'error': error_msg,
-                            'report_type': None
-                        }
-                except Exception as e:
-                    error_msg = f"Google Search failed: {error_google}; NSE failed: {error_msg}; BSE exception: {str(e)}"
-                    logger.warning(f"BSE fallback failed with exception: {e}")
-                    return {
-                        'success': False,
-                        'file_path': None,
-                        'error': error_msg,
-                        'report_type': None
-                    }
-    except Exception as e:
-        error_msg = f"Google Search exception: {str(e)}"
-        logger.warning(f"Google Search failed with exception: {e}")
-        # Try NSE as fallback even if Google Search had an exception
-        logger.info(f"  → Trying NSE API fallback after Google Search exception...")
-        logger.debug(f"Attempting NSE API download for {company_name} ({symbol}) - {year}")
-        success, error, report_type = nse_downloader.download(symbol, output_path, year)
-        
-        if success:
-            logger.info(f"✓ Successfully downloaded via NSE API: {company_folder}/{year}/{filename}")
-            return {
-                'success': True,
-                'file_path': str(output_path),
-                'error': None,
-                'report_type': report_type
-            }
-        else:
-            error_msg_nse = error or "No results from NSE API"
-            error_msg = f"Google Search exception: {error_msg}; NSE failed: {error_msg_nse}"
-            logger.info(f"✗ All download methods failed for {company_name} ({year})")
+            # STRICT POLICY: Standalone BRSR Only - No Fallbacks
+            # Do NOT try NSE API or BSE - they may return Annual Reports or Integrated Reports
+            logger.info(f"✗ Skipping (Standalone BRSR not found via Google Search)")
+            logger.info(f"  → Policy: Standalone BRSR Only - No Annual Reports or Integrated Reports")
             return {
                 'success': False,
                 'file_path': None,
-                'error': error_msg,
+                'error': f"Standalone BRSR not found (Google Search failed: {error_google})",
                 'report_type': None
             }
+    except Exception as e:
+        error_msg = f"Google Search exception: {str(e)}"
+        logger.warning(f"Google Search failed with exception: {e}")
+        # STRICT POLICY: Standalone BRSR Only - No Fallbacks
+        logger.info(f"✗ Skipping (Standalone BRSR not found - Google Search exception)")
+        logger.info(f"  → Policy: Standalone BRSR Only - No Annual Reports or Integrated Reports")
+        return {
+            'success': False,
+            'file_path': None,
+            'error': f"Standalone BRSR not found (Google Search exception: {error_msg})",
+            'report_type': None
+        }
 
 
 class DownloadManager:
