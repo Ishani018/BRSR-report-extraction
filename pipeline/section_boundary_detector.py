@@ -2,6 +2,7 @@
 Section boundary detector - analyzes PDF layout to identify section boundaries.
 """
 import logging
+import re
 from pathlib import Path
 from typing import List, Dict, Optional, Tuple
 import pdfplumber
@@ -350,3 +351,111 @@ class SectionBoundaryDetector:
             return last_page
         
         return start_page  # Single page section
+    
+    @staticmethod
+    def is_brsr_start_page(page_text: str) -> bool:
+        """
+        Check if a page contains the BRSR title in a standalone context.
+        Ignores if it's just a TOC line item.
+        
+        Args:
+            page_text: Text content of the page
+            
+        Returns:
+            True if the page appears to be the start of BRSR section
+        """
+        if not page_text or len(page_text.strip()) < 50:
+            return False
+        
+        text_lower = page_text.lower()
+        
+        # BRSR title patterns (standalone context)
+        brsr_title_patterns = [
+            r'business\s+responsibility\s+and\s+sustainability\s+report',
+            r'brsr\s+report',
+            r'business\s+responsibility\s+report',
+            r'standalone\s+brsr',
+            r'business\s+responsibility\s+and\s+sustainability'
+        ]
+        
+        # Check if any BRSR title pattern appears
+        has_brsr_title = False
+        for pattern in brsr_title_patterns:
+            if re.search(pattern, text_lower, re.IGNORECASE):
+                has_brsr_title = True
+                break
+        
+        if not has_brsr_title:
+            return False
+        
+        # Exclude if it's likely just a TOC entry
+        # TOC entries are usually short and contain list-like patterns
+        toc_indicators = [
+            r'table\s+of\s+contents',
+            r'contents',
+            r'index',
+            r'^\s*\d+\s+',  # Starts with page number
+            r'\.{3,}\s*\d+$'  # Ends with dots and page number (TOC format)
+        ]
+        
+        # Check if this looks like a TOC page
+        is_toc_page = any(re.search(pattern, text_lower, re.IGNORECASE) for pattern in toc_indicators[:3])
+        
+        # If it's a TOC page and the text is short, likely just a TOC entry
+        if is_toc_page and len(page_text.strip()) < 500:
+            return False
+        
+        # Check if the BRSR title appears prominently (not just in a list)
+        # If the page has substantial content (not just a heading), it's likely the actual start
+        if len(page_text.strip()) > 300:
+            return True
+        
+        # If it's a short page but the title appears near the top, it could be a start page
+        # Check if title appears in first 500 characters (top of page)
+        first_part = page_text[:500].lower()
+        for pattern in brsr_title_patterns:
+            if re.search(pattern, first_part, re.IGNORECASE):
+                return True
+        
+        return False
+    
+    @staticmethod
+    def is_financial_end_page(page_text: str) -> bool:
+        """
+        Check if a page signals the start of the next major section (Financial Statements).
+        
+        Args:
+            page_text: Text content of the page
+            
+        Returns:
+            True if the page indicates the start of Financial Statements section
+        """
+        if not page_text or len(page_text.strip()) < 50:
+            return False
+        
+        text_lower = page_text.lower()
+        
+        # Financial statement start indicators
+        financial_keywords = [
+            r'independent\s+auditor[\'s]?\s+report',
+            r'auditor[\'s]?\s+report',
+            r'standalone\s+financial\s+statements',
+            r'consolidated\s+financial\s+statements',
+            r'financial\s+statements',
+            r'balance\s+sheet',
+            r'statement\s+of\s+profit\s+and\s+loss',
+            r'profit\s+and\s+loss\s+account',
+            r'cash\s+flow\s+statement',
+            r'notes\s+to\s+financial\s+statements',
+            r'notes\s+to\s+accounts'
+        ]
+        
+        # Check if any financial statement keyword appears prominently
+        for pattern in financial_keywords:
+            if re.search(pattern, text_lower, re.IGNORECASE):
+                # Check if it appears in the first part of the page (indicating section start)
+                first_part = page_text[:1000].lower()
+                if re.search(pattern, first_part, re.IGNORECASE):
+                    return True
+        
+        return False

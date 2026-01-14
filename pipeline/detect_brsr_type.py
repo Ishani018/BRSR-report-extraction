@@ -1,105 +1,106 @@
 """
 BRSR Type Detector - Classifies whether BRSR is standalone or embedded in annual report.
+Content-First Approach: Analyzes text content of first pages to determine document type.
 """
 import logging
 from pathlib import Path
 from typing import Tuple, Optional, Dict
 import re
 
-from config.config import (
-    BRSR_STANDALONE_MAX_PAGES,
-    BRSR_EMBEDDED_MIN_PAGES,
-    BRSR_CONTENT_THRESHOLD,
-    BRSR_KEYWORDS
-)
-
 from pipeline.detect_pdf_type import get_pdf_info
 from pipeline.extract_text import extract_text, PageText
-from pipeline.section_metadata import SectionType, SECTION_KEYWORDS
 
 logger = logging.getLogger(__name__)
 
 
-def count_brsr_keywords(text: str, keywords: list) -> int:
+def analyze_first_pages_content(pages: list, num_pages: int = 5) -> Dict:
     """
-    Count occurrences of BRSR keywords in text.
-    
-    Args:
-        text: Text to search
-        keywords: List of keywords to search for
-        
-    Returns:
-        Number of keyword matches found
-    """
-    text_lower = text.lower()
-    count = 0
-    
-    for keyword in keywords:
-        # Count occurrences (case-insensitive)
-        pattern = re.escape(keyword.lower())
-        matches = len(re.findall(pattern, text_lower))
-        count += matches
-    
-    return count
-
-
-def analyze_first_pages(pages: list, num_pages: int = 5) -> Dict:
-    """
-    Analyze first few pages for BRSR keywords and structure.
+    Analyze first few pages for document type indicators.
     
     Args:
         pages: List of PageText objects
-        num_pages: Number of pages to analyze
+        num_pages: Number of pages to analyze (default: 5)
         
     Returns:
         Dictionary with analysis results
     """
     if not pages:
         return {
-            'total_chars': 0,
-            'keyword_count': 0,
-            'keyword_density': 0.0,
             'has_brsr_title': False,
-            'brsr_title_page': None
+            'has_annual_report_title': False,
+            'has_financial_statements_toc': False,
+            'combined_text': '',
+            'first_page_text': ''
         }
     
     # Analyze first num_pages
     first_pages = pages[:min(num_pages, len(pages))]
     combined_text = "\n\n".join([p.text for p in first_pages])
-    total_chars = sum(p.char_count for p in first_pages)
+    first_page_text = pages[0].text if pages else ""
     
-    # Count BRSR keywords
-    brsr_keywords = SECTION_KEYWORDS.get(SectionType.BRSR, [])
-    keyword_count = count_brsr_keywords(combined_text, brsr_keywords)
+    combined_lower = combined_text.lower()
+    first_page_lower = first_page_text.lower()
     
-    # Check for BRSR in title/header (first page especially)
+    # Check for BRSR title patterns (standalone context)
+    brsr_title_patterns = [
+        r'business\s+responsibility\s+and\s+sustainability\s+report',
+        r'brsr\s+report',
+        r'business\s+responsibility\s+report',
+        r'standalone\s+brsr',
+        r'standalone\s+business\s+responsibility'
+    ]
+    
     has_brsr_title = False
-    brsr_title_page = None
+    for pattern in brsr_title_patterns:
+        if re.search(pattern, combined_lower, re.IGNORECASE):
+            has_brsr_title = True
+            break
     
-    if pages:
-        first_page_text = pages[0].text.lower()
-        # Check for BRSR report title patterns
-        title_patterns = [
-            r'business\s+responsibility\s+and\s+sustainability\s+report',
-            r'brsr\s+report',
-            r'business\s+responsibility\s+report',
-            r'sustainability\s+report'
-        ]
-        
-        for pattern in title_patterns:
-            if re.search(pattern, first_page_text, re.IGNORECASE):
-                has_brsr_title = True
-                brsr_title_page = 1
+    # Check for Annual Report title patterns
+    annual_report_patterns = [
+        r'annual\s+report\s+\d{4}',
+        r'annual\s+report\s+\d{4}[-/]\d{2,4}',
+        r'\d{4}[-/]\d{2,4}\s+annual\s+report',
+        r'integrated\s+annual\s+report'
+    ]
+    
+    has_annual_report_title = False
+    for pattern in annual_report_patterns:
+        if re.search(pattern, combined_lower, re.IGNORECASE):
+            has_annual_report_title = True
+            break
+    
+    # Check for Table of Contents referencing Financial Statements
+    toc_indicators = [
+        r'table\s+of\s+contents',
+        r'contents',
+        r'index'
+    ]
+    financial_statement_keywords = [
+        r'financial\s+statements',
+        r'balance\s+sheet',
+        r'profit\s+and\s+loss',
+        r'cash\s+flow',
+        r'notes\s+to\s+accounts',
+        r'auditor[\'s]?\s+report'
+    ]
+    
+    has_financial_statements_toc = False
+    # Check if TOC exists and contains financial statement references
+    has_toc = any(re.search(pattern, combined_lower, re.IGNORECASE) for pattern in toc_indicators)
+    if has_toc:
+        # Look for financial statement keywords in the same context
+        for keyword_pattern in financial_statement_keywords:
+            if re.search(keyword_pattern, combined_lower, re.IGNORECASE):
+                has_financial_statements_toc = True
                 break
     
-    keyword_density = keyword_count / max(total_chars / 1000, 1)  # Keywords per 1000 chars
-    
     return {
-        'total_chars': total_chars,
-        'keyword_count': keyword_count,
-        'keyword_density': keyword_density,
         'has_brsr_title': has_brsr_title,
-        'brsr_title_page': brsr_title_page
+        'has_annual_report_title': has_annual_report_title,
+        'has_financial_statements_toc': has_financial_statements_toc,
+        'combined_text': combined_text[:2000],  # First 2000 chars for debugging
+        'first_page_text': first_page_text[:1000]  # First 1000 chars for debugging
     }
 
 
@@ -107,10 +108,12 @@ def detect_brsr_type(pdf_path: Path) -> Tuple[str, float, Dict]:
     """
     Detect whether BRSR is standalone or embedded in annual report.
     
-    Classification logic:
-    - Standalone: Document < 50 pages and BRSR-focused (keywords in title/header)
-    - Embedded: Document > 100 pages and contains BRSR section markers
-    - Unknown: Medium-sized documents (50-100 pages) - analyze content density
+    Content-First Approach:
+    - Analyze text of first 5 pages
+    - Standalone: "Business Responsibility and Sustainability Report" appears 
+      WITHOUT "Annual Report" as main title
+    - Embedded: "Annual Report 20xx" appears OR TOC references Financial Statements
+    - Fallback: Use page count only if content is ambiguous
     
     Args:
         pdf_path: Path to PDF file
@@ -124,90 +127,84 @@ def detect_brsr_type(pdf_path: Path) -> Tuple[str, float, Dict]:
     logger.info(f"Detecting BRSR type for: {pdf_path.name}")
     
     try:
-        # Get PDF info (page count)
-        pdf_info = get_pdf_info(pdf_path)
-        total_pages = pdf_info.get('pages', 0)
-        
-        if total_pages == 0:
-            logger.warning(f"Could not determine page count for {pdf_path.name}")
-            return 'unknown', 0.0, {'error': 'Could not determine page count'}
-        
-        logger.debug(f"PDF has {total_pages} pages")
-        
         # Detect PDF type (text vs scanned)
         from pipeline.detect_pdf_type import detect_pdf_type
         pdf_type, _ = detect_pdf_type(pdf_path)
         
-        # Extract text (first few pages should be enough for classification)
+        # Extract text (we'll analyze first 5 pages for classification)
         pages, _ = extract_text(pdf_path, pdf_type)
         
         if not pages:
             logger.warning(f"No text extracted from {pdf_path.name}")
-            return 'unknown', 0.0, {'error': 'No text extracted'}
+            # Fallback: Try to get page count
+            pdf_info = get_pdf_info(pdf_path)
+            total_pages = pdf_info.get('pages', 0)
+            if total_pages == 0:
+                return 'unknown', 0.0, {'error': 'No text extracted and could not determine page count'}
+            # Use page count as fallback
+            if total_pages <= 50:
+                return 'standalone', 0.5, {'error': 'No text extracted, using page count fallback', 'total_pages': total_pages}
+            elif total_pages >= 100:
+                return 'embedded', 0.5, {'error': 'No text extracted, using page count fallback', 'total_pages': total_pages}
+            else:
+                return 'unknown', 0.5, {'error': 'No text extracted, using page count fallback', 'total_pages': total_pages}
         
-        # Analyze first pages for BRSR keywords
-        first_pages_analysis = analyze_first_pages(pages, num_pages=5)
+        # Analyze first pages content
+        analysis = analyze_first_pages_content(pages, num_pages=5)
         
-        # Analyze full document for keyword density (sample pages for large documents)
-        if total_pages > 10:
-            # Sample pages for large documents
-            sample_indices = [0, len(pages) // 4, len(pages) // 2, len(pages) * 3 // 4, len(pages) - 1]
-            sample_pages = [pages[i] for i in sample_indices if i < len(pages)]
-        else:
-            sample_pages = pages
+        # Get page count for fallback
+        pdf_info = get_pdf_info(pdf_path)
+        total_pages = pdf_info.get('pages', 0)
         
-        sample_text = "\n\n".join([p.text for p in sample_pages])
-        brsr_keywords = SECTION_KEYWORDS.get(SectionType.BRSR, [])
-        total_keyword_count = count_brsr_keywords(sample_text, brsr_keywords)
-        total_sample_chars = sum(p.char_count for p in sample_pages)
-        overall_keyword_density = total_keyword_count / max(total_sample_chars / 1000, 1)
-        
-        # Classification logic
         metadata = {
             'total_pages': total_pages,
-            'total_text_pages': len(pages),
-            'first_pages_analysis': first_pages_analysis,
-            'overall_keyword_density': overall_keyword_density,
-            'total_keyword_count': total_keyword_count
+            'analysis': analysis
         }
         
-        # Rule 1: Standalone BRSR (< 50 pages and BRSR-focused)
-        if total_pages <= BRSR_STANDALONE_MAX_PAGES:
-            # Check if it's BRSR-focused (keywords in title or high density)
-            if first_pages_analysis['has_brsr_title'] or overall_keyword_density > BRSR_CONTENT_THRESHOLD:
-                confidence = 0.9 if first_pages_analysis['has_brsr_title'] else 0.7
-                logger.info(f"Classified as STANDALONE (pages: {total_pages}, confidence: {confidence:.2f})")
-                metadata['classification_reason'] = f'Pages <= {BRSR_STANDALONE_MAX_PAGES} and BRSR-focused'
-                return 'standalone', confidence, metadata
+        # Content-First Classification Logic
         
-        # Rule 2: Embedded BRSR (> 100 pages with BRSR section markers)
-        if total_pages >= BRSR_EMBEDDED_MIN_PAGES:
-            # Check for BRSR section markers (keywords present but not dominant)
-            if overall_keyword_density > BRSR_CONTENT_THRESHOLD * 0.5:  # Some BRSR keywords but not dominant
-                confidence = 0.8 if first_pages_analysis['keyword_count'] > 0 else 0.6
-                logger.info(f"Classified as EMBEDDED (pages: {total_pages}, confidence: {confidence:.2f})")
-                metadata['classification_reason'] = f'Pages >= {BRSR_EMBEDDED_MIN_PAGES} with BRSR section markers'
+        # Rule 1: Standalone BRSR
+        # BRSR title appears WITHOUT Annual Report title
+        if analysis['has_brsr_title'] and not analysis['has_annual_report_title']:
+            confidence = 0.9
+            metadata['classification_reason'] = 'BRSR title found without Annual Report title'
+            logger.info(f"Classified as STANDALONE (BRSR title without Annual Report, confidence: {confidence:.2f})")
+            return 'standalone', confidence, metadata
+        
+        # Rule 2: Embedded BRSR
+        # Annual Report title appears OR TOC references Financial Statements
+        if analysis['has_annual_report_title']:
+            confidence = 0.85
+            metadata['classification_reason'] = 'Annual Report title found'
+            logger.info(f"Classified as EMBEDDED (Annual Report title found, confidence: {confidence:.2f})")
+            return 'embedded', confidence, metadata
+        
+        if analysis['has_financial_statements_toc']:
+            confidence = 0.8
+            metadata['classification_reason'] = 'TOC references Financial Statements'
+            logger.info(f"Classified as EMBEDDED (TOC references Financial Statements, confidence: {confidence:.2f})")
+            return 'embedded', confidence, metadata
+        
+        # Rule 3: Fallback - Use page count if content is ambiguous
+        if total_pages > 0:
+            if total_pages <= 50:
+                # Small document, likely standalone
+                confidence = 0.6
+                metadata['classification_reason'] = 'Content ambiguous, using page count (<=50 pages)'
+                logger.info(f"Classified as STANDALONE (page count fallback, confidence: {confidence:.2f})")
+                return 'standalone', confidence, metadata
+            elif total_pages >= 100:
+                # Large document, likely embedded
+                confidence = 0.6
+                metadata['classification_reason'] = 'Content ambiguous, using page count (>=100 pages)'
+                logger.info(f"Classified as EMBEDDED (page count fallback, confidence: {confidence:.2f})")
                 return 'embedded', confidence, metadata
         
-        # Rule 3: Medium-sized documents (50-100 pages) - analyze content density
-        if BRSR_STANDALONE_MAX_PAGES < total_pages < BRSR_EMBEDDED_MIN_PAGES:
-            # If BRSR keywords are prominent and document is focused, likely standalone
-            if first_pages_analysis['has_brsr_title'] or overall_keyword_density > BRSR_CONTENT_THRESHOLD:
-                confidence = 0.75 if first_pages_analysis['has_brsr_title'] else 0.6
-                logger.info(f"Classified as STANDALONE (medium-sized, pages: {total_pages}, confidence: {confidence:.2f})")
-                metadata['classification_reason'] = 'Medium-sized document with BRSR focus'
-                return 'standalone', confidence, metadata
-            else:
-                # Could be embedded or mixed
-                confidence = 0.5
-                logger.info(f"Classified as UNKNOWN (medium-sized, pages: {total_pages}, confidence: {confidence:.2f})")
-                metadata['classification_reason'] = 'Medium-sized document with unclear BRSR focus'
-                return 'unknown', confidence, metadata
-        
         # Default: Unknown
-        logger.info(f"Classified as UNKNOWN (pages: {total_pages}, confidence: 0.5)")
-        metadata['classification_reason'] = 'Could not determine BRSR type'
-        return 'unknown', 0.5, metadata
+        confidence = 0.4
+        metadata['classification_reason'] = 'Could not determine type from content or page count'
+        logger.info(f"Classified as UNKNOWN (confidence: {confidence:.2f})")
+        return 'unknown', confidence, metadata
         
     except Exception as e:
         logger.error(f"Error detecting BRSR type for {pdf_path.name}: {e}", exc_info=True)
@@ -299,4 +296,3 @@ if __name__ == "__main__":
     print(f"{'='*80}")
     
     sys.exit(0)
-

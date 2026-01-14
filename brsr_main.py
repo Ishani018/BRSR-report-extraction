@@ -170,30 +170,41 @@ def process_brsr_pdf(
             logger.info(f"  Exported JSON to {json_path}")
             
         elif brsr_type == 'embedded':
-            # Extract BRSR section from annual report
-            logger.info("  Processing as EMBEDDED BRSR...")
+            # Process entire document (convert whole PDF for now)
+            logger.info("  Processing as EMBEDDED BRSR (converting entire PDF)...")
             
-            extraction_result = extract_brsr_from_annual_report(
-                pdf_path=pdf_path,
-                pages=pages,  # Use original pages with layout info
-                output_dir=output_path,
-                company_name=company_name,
-                year=year
+            # Export to DOCX (entire document)
+            docx_path = export_brsr_to_docx(
+                cleaned_pages, output_path, company_name, year,
+                is_standalone=False, is_from_annual=True,
+                naming_convention=naming_convention, symbol=symbol, serial_number=serial_number
+            )
+            result['output_files'].append(str(docx_path))
+            
+            # Build hierarchical structure
+            logger.info("  Building hierarchical structure...")
+            full_text = "\n\n".join([p.text for p in cleaned_pages])
+            # Use 'mdna' as section type for hierarchy building (works for BRSR too)
+            hierarchy_builder = SectionHierarchyBuilder(section_type='mdna')
+            full_report_hierarchy = hierarchy_builder.build_section_hierarchy(
+                text=full_text,
+                company=company_name,
+                year=year,
+                section_name="BRSR Report (from Annual Report)",
+                start_page=1,
+                end_page=len(cleaned_pages),
+                confidence=confidence
             )
             
-            if extraction_result and extraction_result.get('success'):
-                logger.info(f"  Extracted BRSR section: pages {extraction_result['start_page']}-{extraction_result['end_page']}")
-                result['output_files'].append(extraction_result.get('docx_path'))
-                result['extraction_metadata'] = extraction_result
-            else:
-                # Fallback: process entire document but mark as from annual report
-                logger.warning("  Section extraction failed, processing entire document as fallback...")
-                docx_path = export_brsr_to_docx(
-                    cleaned_pages, output_path, company_name, year,
-                    is_standalone=False, is_from_annual=True,
-                    naming_convention=naming_convention, symbol=symbol, serial_number=serial_number
-                )
-                result['output_files'].append(str(docx_path))
+            # Export JSON
+            json_filename = format_brsr_output_filename(
+                company_name, year, False, True, 'json',
+                naming_convention=naming_convention, symbol=symbol, serial_number=serial_number
+            )
+            json_path = output_path / json_filename
+            hierarchy_builder.export_section_json(full_report_hierarchy, json_path)
+            result['output_files'].append(str(json_path))
+            logger.info(f"  Exported JSON to {json_path}")
         else:
             # Unknown type - process as standalone but with lower confidence
             logger.warning("  BRSR type unknown, processing as standalone with low confidence...")

@@ -1,15 +1,14 @@
 """
 BRSR Extractor - Extract BRSR sections from embedded annual reports.
+Content-First Approach: Extract all text first, then filter pages by content.
 """
 import logging
 from pathlib import Path
 from typing import List, Dict, Optional
 
 from pipeline.section_boundary_detector import SectionBoundaryDetector
-from pipeline.section_content_extractor import SectionContentExtractor
-from pipeline.section_metadata import SectionType, SectionBoundary, SectionContent, SECTION_KEYWORDS
 from pipeline.extract_text import PageText
-from pipeline.export_outputs import export_to_docx
+from pipeline.export_outputs import export_brsr_to_docx
 
 logger = logging.getLogger(__name__)
 
@@ -22,11 +21,17 @@ def extract_brsr_from_annual_report(
     year: str
 ) -> Optional[Dict]:
     """
-    Extract BRSR section from embedded annual report.
+    Extract BRSR section from embedded annual report using Content-First approach.
+    
+    Flow: Extract All -> Filter Pages
+    1. Iterate through pages to find start_index using is_brsr_start_page
+    2. If found, iterate from start_index + 1 to find end_index using is_financial_end_page
+    3. Slice the list: brsr_pages = pages[start_index : end_index]
+    4. Pass sliced list to export functions
     
     Args:
-        pdf_path: Path to PDF file
-        pages: List of PageText objects from main pipeline
+        pdf_path: Path to PDF file (not used in new approach, kept for compatibility)
+        pages: List of PageText objects from main pipeline (full document)
         output_dir: Directory for extracted section outputs
         company_name: Company name
         year: Report year
@@ -37,102 +42,75 @@ def extract_brsr_from_annual_report(
     logger.info(f"Extracting BRSR section from annual report: {pdf_path.name}")
     
     try:
-        # Step 1: Detect BRSR section boundaries from PDF layout
-        logger.info("Step 1: Detecting BRSR section boundaries...")
-        detector = SectionBoundaryDetector(pdf_path)
-        
-        # Extend detector to handle BRSR sections
-        # Modify detect_section_boundaries to include BRSR
-        boundaries = detector.detect_section_boundaries()
-        
-        # Try to find BRSR boundary
-        brsr_boundary = None
-        
-        # Method 1: Use embedded BRSR keywords
-        brsr_keywords = SECTION_KEYWORDS.get(SectionType.BRSR_EMBEDDED, [])
-        if not brsr_keywords:
-            # Fallback to main BRSR keywords
-            brsr_keywords = SECTION_KEYWORDS.get(SectionType.BRSR, [])
-        
-        # Find BRSR section using boundary detector logic
-        # Extract layout metadata if not already done
-        if not detector.text_blocks:
-            detector.extract_layout_metadata()
-        
-        # Find BRSR section boundary
-        candidates = []
-        for block in detector.text_blocks:
-            if not detector._is_potential_heading(block):
-                continue
-            
-            normalized = block.normalized_text
-            for keyword in brsr_keywords:
-                if keyword in normalized:
-                    confidence = detector._calculate_confidence(block, keyword, normalized)
-                    candidates.append((block, confidence, keyword))
-                    logger.debug(
-                        f"BRSR candidate heading on page {block.page_number}: "
-                        f"'{block.text}' (confidence={confidence:.2f})"
-                    )
-                    break
-        
-        if candidates:
-            # Select best candidate
-            best_block, best_confidence, matched_keyword = max(candidates, key=lambda x: x[1])
-            
-            # Find section end
-            end_page = detector._find_section_end(best_block.page_number, SectionType.BRSR_EMBEDDED)
-            
-            brsr_boundary = SectionBoundary(
-                section_type=SectionType.BRSR_EMBEDDED,
-                start_page=best_block.page_number,
-                end_page=end_page,
-                confidence=best_confidence,
-                start_heading=best_block.text,
-                detection_method="layout_and_keywords"
-            )
-            
-            logger.info(
-                f"Found BRSR section: pages {brsr_boundary.start_page}-{brsr_boundary.end_page}, "
-                f"confidence={brsr_boundary.confidence:.2f}"
-            )
-        
-        if not brsr_boundary:
-            logger.warning("Could not detect BRSR section boundaries")
+        if not pages:
+            logger.warning("No pages provided for extraction")
             return None
         
-        # Step 2: Extract BRSR content from processed text
-        logger.info("Step 2: Extracting BRSR section content...")
-        extractor = SectionContentExtractor(pages, output_dir)
+        # Step 1: Find BRSR start page
+        logger.info("Step 1: Finding BRSR start page...")
+        start_index = None
         
-        content = extractor.extract_section(brsr_boundary)
+        for i, page in enumerate(pages):
+            if SectionBoundaryDetector.is_brsr_start_page(page.text):
+                start_index = i
+                logger.info(f"Found BRSR start at page {page.page_number} (index {i})")
+                break
         
-        if not content:
-            logger.warning("Could not extract BRSR section content")
+        if start_index is None:
+            logger.warning("Could not find BRSR start page")
             return None
         
-        # Step 3: Export extracted section to DOCX and JSON
-        logger.info("Step 3: Exporting BRSR section...")
+        # Step 2: Find financial statements end page
+        logger.info("Step 2: Finding BRSR end page (start of Financial Statements)...")
+        end_index = len(pages)  # Default to end of document
         
-        # Export to DOCX
-        docx_path = extractor.export_section_to_docx(content, company_name, year)
+        for i in range(start_index + 1, len(pages)):
+            page = pages[i]
+            if SectionBoundaryDetector.is_financial_end_page(page.text):
+                end_index = i
+                logger.info(f"Found BRSR end at page {page.page_number} (index {i}) - Financial Statements start")
+                break
         
-        # Export to JSON (if supported by extractor)
-        # Note: section_content_extractor may need extension for JSON export
-        # For now, we'll use the existing export methods
+        # Step 3: Slice the pages list
+        brsr_pages = pages[start_index:end_index]
+        
+        if not brsr_pages:
+            logger.warning("No pages in BRSR section")
+            return None
+        
+        start_page_number = brsr_pages[0].page_number
+        end_page_number = brsr_pages[-1].page_number
+        
+        logger.info(f"BRSR section: pages {start_page_number}-{end_page_number} ({len(brsr_pages)} pages)")
+        
+        # Step 4: Export sliced pages to DOCX
+        logger.info("Step 3: Exporting BRSR section to DOCX...")
+        
+        try:
+            docx_path = export_brsr_to_docx(
+                pages=brsr_pages,
+                output_path=output_dir,
+                company_name=company_name,
+                year=year,
+                is_standalone=False,  # This is embedded BRSR
+                is_from_annual=True
+            )
+            logger.info(f"Exported BRSR section DOCX to: {docx_path}")
+        except Exception as e:
+            logger.error(f"Error exporting DOCX: {e}", exc_info=True)
+            return None
         
         result = {
             'success': True,
             'section_type': 'brsr_embedded',
-            'boundary': brsr_boundary.to_dict(),
-            'content': content.to_dict(),
+            'start_page': start_page_number,
+            'end_page': end_page_number,
+            'page_count': len(brsr_pages),
             'docx_path': str(docx_path),
-            'start_page': brsr_boundary.start_page,
-            'end_page': brsr_boundary.end_page,
-            'confidence': brsr_boundary.confidence
+            'confidence': 1.0  # High confidence when boundaries are found via content
         }
         
-        logger.info(f"Successfully extracted BRSR section: pages {brsr_boundary.start_page}-{brsr_boundary.end_page}")
+        logger.info(f"Successfully extracted BRSR section: pages {start_page_number}-{end_page_number}")
         return result
         
     except Exception as e:
@@ -218,9 +196,8 @@ if __name__ == "__main__":
     if result:
         print(f"\n✓ Successfully extracted BRSR section")
         print(f"  Pages: {result['start_page']}-{result['end_page']}")
-        print(f"  Confidence: {result['confidence']:.2f}")
+        print(f"  Page Count: {result['page_count']}")
         print(f"  DOCX: {result['docx_path']}")
     else:
         print("\n✗ Failed to extract BRSR section")
         sys.exit(1)
-

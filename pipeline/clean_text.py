@@ -3,8 +3,10 @@ Module for cleaning extracted text from PDFs.
 """
 import logging
 import re
+import unicodedata
 from typing import List, Set, Dict
 from collections import Counter
+from difflib import SequenceMatcher
 
 from pipeline.extract_text import PageText
 from config.config import MIN_LINE_LENGTH, HEADER_FOOTER_THRESHOLD
@@ -92,9 +94,50 @@ def fix_broken_lines(text: str) -> str:
     return '\n'.join(fixed_lines)
 
 
+def fuzzy_match_similar_lines(lines: List[str], similarity_threshold: float = 0.85) -> List[Set[str]]:
+    """
+    Group lines that are similar (>85% similarity) using fuzzy matching.
+    
+    Args:
+        lines: List of lines to group
+        similarity_threshold: Minimum similarity ratio (0-1) to consider lines as similar
+        
+    Returns:
+        List of sets, where each set contains similar lines
+    """
+    groups = []
+    processed = set()
+    
+    for i, line1 in enumerate(lines):
+        if i in processed:
+            continue
+        
+        # Start a new group with this line
+        group = {line1}
+        processed.add(i)
+        
+        # Find all similar lines
+        for j, line2 in enumerate(lines[i+1:], start=i+1):
+            if j in processed:
+                continue
+            
+            # Calculate similarity ratio
+            similarity = SequenceMatcher(None, line1, line2).ratio()
+            
+            if similarity >= similarity_threshold:
+                group.add(line2)
+                processed.add(j)
+        
+        if group:
+            groups.append(group)
+    
+    return groups
+
+
 def detect_repeated_elements(pages: List[PageText], threshold: float = HEADER_FOOTER_THRESHOLD) -> Dict[str, Set[str]]:
     """
-    Detect repeated headers and footers across pages.
+    Detect repeated headers and footers across pages using fuzzy matching.
+    This handles cases where headers/footers have changing page numbers.
     
     Args:
         pages: List of PageText objects
@@ -103,30 +146,47 @@ def detect_repeated_elements(pages: List[PageText], threshold: float = HEADER_FO
     Returns:
         Dictionary with 'headers' and 'footers' sets
     """
-    logger.info("Detecting repeated headers and footers...")
+    logger.info("Detecting repeated headers and footers (fuzzy matching)...")
     
     first_lines = []
     last_lines = []
     
     for page in pages:
-        lines = [l.strip() for l in page.text.split('\n') if l.strip()]
+        lines = [l.strip() for l in page.text.split('\n') if l.strip() and len(l.strip()) > MIN_LINE_LENGTH]
         if lines:
             # Get first few lines
             first_lines.extend(lines[:3])
             # Get last few lines
             last_lines.extend(lines[-3:])
     
-    # Count occurrences
-    first_counter = Counter(first_lines)
-    last_counter = Counter(last_lines)
+    # Use fuzzy matching to group similar lines
+    first_groups = fuzzy_match_similar_lines(first_lines, similarity_threshold=0.85)
+    last_groups = fuzzy_match_similar_lines(last_lines, similarity_threshold=0.85)
     
-    # Identify repeated elements
+    # Count occurrences of each group (a group represents similar lines)
     min_occurrences = len(pages) * threshold
     
-    headers = {line for line, count in first_counter.items() 
-               if count >= min_occurrences and len(line) > MIN_LINE_LENGTH}
-    footers = {line for line, count in last_counter.items() 
-               if count >= min_occurrences and len(line) > MIN_LINE_LENGTH}
+    headers = set()
+    for group in first_groups:
+        # Count how many lines in this group appear in first_lines
+        group_count = sum(1 for line in first_lines if any(
+            SequenceMatcher(None, line, group_line).ratio() >= 0.85 for group_line in group
+        ))
+        
+        if group_count >= min_occurrences:
+            # Add all lines from this group (they're all similar)
+            headers.update(group)
+    
+    footers = set()
+    for group in last_groups:
+        # Count how many lines in this group appear in last_lines
+        group_count = sum(1 for line in last_lines if any(
+            SequenceMatcher(None, line, group_line).ratio() >= 0.85 for group_line in group
+        ))
+        
+        if group_count >= min_occurrences:
+            # Add all lines from this group (they're all similar)
+            footers.update(group)
     
     logger.info(f"Detected {len(headers)} header patterns and {len(footers)} footer patterns")
     
@@ -135,7 +195,7 @@ def detect_repeated_elements(pages: List[PageText], threshold: float = HEADER_FO
 
 def remove_headers_footers(text: str, patterns: Dict[str, Set[str]]) -> str:
     """
-    Remove identified headers and footers from text.
+    Remove identified headers and footers from text using fuzzy matching.
     
     Args:
         text: Input text
@@ -150,8 +210,21 @@ def remove_headers_footers(text: str, patterns: Dict[str, Set[str]]) -> str:
     for line in lines:
         line_stripped = line.strip()
         
-        # Skip if line matches a header or footer pattern
+        # Skip if line matches a header or footer pattern (exact match)
         if line_stripped in patterns['headers'] or line_stripped in patterns['footers']:
+            continue
+        
+        # Also check fuzzy match against patterns (for lines with minor variations)
+        is_header = any(
+            SequenceMatcher(None, line_stripped, pattern).ratio() >= 0.85
+            for pattern in patterns['headers']
+        )
+        is_footer = any(
+            SequenceMatcher(None, line_stripped, pattern).ratio() >= 0.85
+            for pattern in patterns['footers']
+        )
+        
+        if is_header or is_footer:
             continue
         
         # Skip page numbers (simple pattern)
@@ -200,8 +273,19 @@ def clean_text(text: str) -> str:
         Fully cleaned text
     """
     # Apply cleaning operations in sequence
+    # Step 1: Fix reversed text early (before other operations)
+    text = fix_reversed_text(text)
+    
+    # Step 2: Normalize Unicode
+    text = normalize_unicode(text)
+    
+    # Step 3: Remove noise patterns
     text = remove_noise_patterns(text)
+    
+    # Step 4: Fix broken lines
     text = fix_broken_lines(text)
+    
+    # Step 5: Remove extra whitespace
     text = remove_extra_whitespace(text)
     
     return text
@@ -258,7 +342,8 @@ def remove_short_lines(text: str, min_length: int = MIN_LINE_LENGTH) -> str:
 
 def normalize_unicode(text: str) -> str:
     """
-    Normalize Unicode characters to standard forms.
+    Normalize Unicode characters to standard forms using NFKC normalization
+    and additional mappings for corporate report characters.
     
     Args:
         text: Input text
@@ -266,18 +351,115 @@ def normalize_unicode(text: str) -> str:
     Returns:
         Normalized text
     """
-    # Replace common Unicode issues
+    # Step 1: NFKC normalization (decomposes and recomposes characters)
+    text = unicodedata.normalize('NFKC', text)
+    
+    # Step 2: Map common "fancy" characters to ASCII equivalents
     replacements = {
+        # Smart quotes
         '\u2019': "'",  # Right single quotation mark
         '\u2018': "'",  # Left single quotation mark
         '\u201c': '"',  # Left double quotation mark
         '\u201d': '"',  # Right double quotation mark
+        '\u2032': "'",  # Prime
+        '\u2033': '"',  # Double prime
+        
+        # Dashes
         '\u2013': '-',  # En dash
         '\u2014': '--', # Em dash
+        '\u2015': '--', # Horizontal bar
+        '\u2212': '-',  # Minus sign
+        
+        # Spaces
         '\u00a0': ' ',  # Non-breaking space
+        '\u2000': ' ',  # En quad
+        '\u2001': ' ',  # Em quad
+        '\u2002': ' ',  # En space
+        '\u2003': ' ',  # Em space
+        '\u2009': ' ',  # Thin space
+        
+        # Bullet points
+        '\u2022': '•',  # Bullet
+        '\u25cf': '•',  # Black circle
+        '\u25cb': 'o',  # White circle
+        '\u2023': '>',  # Triangular bullet
+        '\u25aa': '▪',  # Black small square
+        '\u25ab': '▫',  # White small square
+        
+        # Other common characters
+        '\u00ae': '(R)',  # Registered sign
+        '\u00a9': '(C)',  # Copyright sign
+        '\u2122': '(TM)', # Trade mark sign
+        '\u00b0': 'deg',  # Degree sign
+        '\u00b1': '+/-',  # Plus-minus sign
+        '\u00d7': 'x',    # Multiplication sign
+        '\u00f7': '/',    # Division sign
     }
     
     for old, new in replacements.items():
         text = text.replace(old, new)
     
     return text
+
+
+def fix_reversed_text(text: str) -> str:
+    """
+    Detect and fix lines that are visually reversed.
+    Uses heuristic: if a significant percentage of words look like reversed
+    common stopwords, reverse the string back.
+    
+    Args:
+        text: Input text that might contain reversed lines
+        
+    Returns:
+        Text with reversed lines fixed
+    """
+    # Common English stopwords that when reversed might appear in corrupted text
+    reversed_stopwords = {
+        'eht',  # 'the' reversed
+        'rof',  # 'for' reversed
+        'dna',  # 'and' reversed
+        'si',   # 'is' reversed
+        'fo',   # 'of' reversed
+        'a',    # 'a' reversed (still 'a')
+        'ta',   # 'at' reversed
+        'ot',   # 'to' reversed
+        'ni',   # 'in' reversed
+        'eh',   # 'he' reversed
+        'as',   # 'sa' (might be 'as' reversed, though 'as' is palindrome)
+        'tuo',  # 'out' reversed
+        'no',   # 'on' reversed
+        'sa',   # 'as' (though 'as' is palindrome)
+        'ti',   # 'it' reversed
+    }
+    
+    lines = text.split('\n')
+    fixed_lines = []
+    
+    for line in lines:
+        if not line.strip() or len(line.strip()) < 10:
+            # Skip very short lines
+            fixed_lines.append(line)
+            continue
+        
+        # Check words in the line
+        words = re.findall(r'\b\w+\b', line.lower())
+        
+        if len(words) < 3:
+            # Need at least 3 words to make a determination
+            fixed_lines.append(line)
+            continue
+        
+        # Count how many words match reversed stopwords
+        reversed_matches = sum(1 for word in words if word in reversed_stopwords)
+        match_ratio = reversed_matches / len(words) if words else 0
+        
+        # If >20% of words are reversed stopwords, likely reversed text
+        if match_ratio > 0.2:
+            # Reverse the line
+            fixed_lines.append(line[::-1])
+            logger.debug(f"Fixed reversed text: {line[:50]}... -> {line[::-1][:50]}...")
+        else:
+            fixed_lines.append(line)
+    
+    return '\n'.join(fixed_lines)

@@ -55,28 +55,22 @@ def create_brsr_output_directory(
     serial_number: Optional[int] = None
 ) -> Path:
     """
-    Create BRSR-specific output directory structure.
-    Uses {serial_number}_{SYMBOL} format like downloads if available.
+    Create BRSR-specific output directory (flat structure - no nested folders).
+    Returns the base output directory where all files are saved directly.
     
     Args:
-        company_name: Name of the company
-        year: Financial year (e.g., '2022-23')
-        symbol: Optional company symbol
-        serial_number: Optional serial number
+        company_name: Name of the company (not used, kept for compatibility)
+        year: Financial year (e.g., '2022-23') (not used, kept for compatibility)
+        symbol: Optional company symbol (not used, kept for compatibility)
+        serial_number: Optional serial number (not used, kept for compatibility)
         
     Returns:
-        Path to the output directory (outputs/{year}/{serial_number}_{SYMBOL}/ or outputs/{year}/{CompanyName}/)
+        Path to the base output directory (outputs/) - flat structure
     """
-    if symbol and serial_number is not None:
-        # Use {serial_number}_{SYMBOL} format like downloads
-        company_folder = f"{serial_number}_{symbol.upper()}"
-        output_path = OUTPUT_BASE_DIR / year / company_folder
-        output_path.mkdir(parents=True, exist_ok=True)
-        logger.info(f"Created output directory: {output_path}")
-        return output_path
-    else:
-        # Fallback to company name format
-        return create_output_directory(company_name, year, brsr_mode=True)
+    # Flat structure: all files go directly into OUTPUT_BASE_DIR
+    OUTPUT_BASE_DIR.mkdir(parents=True, exist_ok=True)
+    logger.info(f"Using flat output directory: {OUTPUT_BASE_DIR}")
+    return OUTPUT_BASE_DIR
 
 
 def export_to_docx(
@@ -177,15 +171,16 @@ def export_brsr_to_docx(
     """
     logger.info(f"Exporting BRSR to DOCX: {company_name} {year}")
     
-    # Create output directory if needed
+    # Ensure output_path is the base directory (flat structure)
     output_path = Path(output_path)
     output_path.mkdir(parents=True, exist_ok=True)
     
-    # Format filename
+    # Format filename (includes all identifying info, so unique in flat folder)
     filename = format_brsr_output_filename(
         company_name, year, is_standalone, is_from_annual, 'docx',
         naming_convention=naming_convention, symbol=symbol, serial_number=serial_number
     )
+    # Save directly to base directory (flat structure)
     docx_path = output_path / filename
     
     # Create document
@@ -270,7 +265,7 @@ def export_metadata_to_json(
             "total_pages": len(pages),
             "total_characters": sum(page.char_count for page in pages),
             "total_sections": len(sections),
-            "total_tables": len(tables)
+            "total_tables": 0  # Tables not extracted in current pipeline
         },
         "sections": [
             {

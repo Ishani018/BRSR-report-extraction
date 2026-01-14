@@ -8,7 +8,7 @@ import io
 
 import pdfplumber
 import fitz  # PyMuPDF
-from PIL import Image
+from PIL import Image, ImageEnhance
 import pytesseract
 
 from config.config import OCR_DPI
@@ -26,9 +26,116 @@ class PageText:
         self.char_count = len(text)
 
 
+def extract_text_with_table_support(page) -> str:
+    """
+    Extract text from a page using pdfplumber's native table extraction.
+    Preserves table structures while extracting regular text.
+    
+    Args:
+        page: pdfplumber page object
+        
+    Returns:
+        Extracted text with tables formatted using pipe separators
+    """
+    try:
+        # Find all tables on the page
+        tables = page.find_tables()
+        
+        if not tables:
+            # No tables found, extract text normally
+            return page.extract_text() or ""
+        
+        # Get text outside table bounding boxes
+        # Create a list of table bounding boxes to exclude
+        table_boxes = []
+        for table in tables:
+            # Get bounding box of the table
+            bbox = table.bbox
+            table_boxes.append({
+                'x0': bbox[0],
+                'y0': bbox[1],
+                'x1': bbox[2],
+                'y1': bbox[3]
+            })
+        
+        # Extract words and filter out those inside table boxes
+        words = page.extract_words(x_tolerance=3, y_tolerance=3)
+        non_table_words = []
+        
+        for word in words:
+            word_center_x = (word['x0'] + word['x1']) / 2
+            word_center_y = (word['top'] + word['bottom']) / 2
+            
+            # Check if word is inside any table box
+            is_in_table = False
+            for box in table_boxes:
+                if (box['x0'] <= word_center_x <= box['x1'] and
+                    box['y0'] <= word_center_y <= box['y1']):
+                    is_in_table = True
+                    break
+            
+            if not is_in_table:
+                non_table_words.append(word)
+        
+        # Convert non-table words to text (preserving layout)
+        non_table_text = ""
+        if non_table_words:
+            # Sort by vertical then horizontal position
+            non_table_words.sort(key=lambda w: (round(w['top']), w['x0']))
+            
+            current_line = []
+            current_top = non_table_words[0]['top'] if non_table_words else 0
+            
+            for word in non_table_words:
+                if abs(word['top'] - current_top) <= 5:
+                    current_line.append(word['text'])
+                else:
+                    if current_line:
+                        non_table_text += ' '.join(current_line) + '\n'
+                    current_line = [word['text']]
+                    current_top = word['top']
+            
+            if current_line:
+                non_table_text += ' '.join(current_line) + '\n'
+        
+        # Extract tables row by row with pipe separators
+        table_texts = []
+        for table in tables:
+            try:
+                extracted_table = table.extract()
+                if extracted_table:
+                    table_rows = []
+                    for row in extracted_table:
+                        if row:
+                            # Filter out None values and join with pipe separator
+                            clean_row = [str(cell) if cell else '' for cell in row]
+                            table_rows.append(' | '.join(clean_row))
+                    
+                    if table_rows:
+                        table_texts.append('\n'.join(table_rows))
+            except Exception as e:
+                logger.debug(f"Error extracting table: {e}")
+                continue
+        
+        # Combine non-table text and table text
+        result_parts = []
+        if non_table_text.strip():
+            result_parts.append(non_table_text.strip())
+        
+        for table_text in table_texts:
+            if table_text.strip():
+                result_parts.append("\n[TABLE]\n" + table_text.strip() + "\n[/TABLE]")
+        
+        return '\n\n'.join(result_parts) if result_parts else ""
+        
+    except Exception as e:
+        logger.debug(f"Table extraction failed, using standard extraction: {e}")
+        return page.extract_text() or ""
+
+
 def extract_text_from_text_pdf(pdf_path: Path) -> List[PageText]:
     """
-    Extract text from a text-based PDF using pdfplumber with proper column handling.
+    Extract text from a text-based PDF using pdfplumber with proper column and table handling.
     
     Args:
         pdf_path: Path to the PDF file
@@ -43,10 +150,14 @@ def extract_text_from_text_pdf(pdf_path: Path) -> List[PageText]:
         with pdfplumber.open(pdf_path) as pdf:
             for i, page in enumerate(pdf.pages):
                 try:
-                    # Try to detect and handle multi-column layouts
-                    text = extract_text_with_column_detection(page)
+                    # First try table-aware extraction
+                    text = extract_text_with_table_support(page)
                     
-                    # Fallback to standard extraction if column detection fails
+                    # Fallback to column detection if table extraction yields little
+                    if not text or len(text.strip()) < 50:
+                        text = extract_text_with_column_detection(page)
+                    
+                    # Final fallback to standard extraction
                     if not text or len(text.strip()) < 50:
                         text = page.extract_text() or ""
                     
@@ -385,6 +496,29 @@ def extract_text_from_scanned_pdf(pdf_path: Path, dpi: int = OCR_DPI) -> List[Pa
                 pix = page.get_pixmap(dpi=dpi)
                 img_data = pix.tobytes("png")
                 image = Image.open(io.BytesIO(img_data))
+                
+                # Image pre-processing for better OCR accuracy
+                # Step 1: Convert to grayscale
+                if image.mode != 'L':
+                    image = image.convert('L')
+                
+                # Step 2: Enhance contrast
+                enhancer = ImageEnhance.Contrast(image)
+                image = enhancer.enhance(1.5)  # Increase contrast by 50%
+                
+                # Step 3: Apply binary thresholding to clean up gray backgrounds
+                # Convert to numpy array for thresholding (if available)
+                try:
+                    import numpy as np
+                    img_array = np.array(image)
+                    # Apply adaptive thresholding
+                    threshold = np.mean(img_array)
+                    img_array = np.where(img_array > threshold, 255, 0).astype(np.uint8)
+                    image = Image.fromarray(img_array, mode='L')
+                except ImportError:
+                    # If numpy not available, use simple threshold
+                    from PIL import ImageOps
+                    image = ImageOps.autocontrast(image)
                 
                 # Perform OCR
                 text = pytesseract.image_to_string(image)

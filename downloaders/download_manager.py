@@ -161,10 +161,9 @@ def download_brsr_report(
     force_reload: bool = False
 ) -> Dict:
     """
-    Download BRSR report using Google Search first (prioritizes standalone BRSR), 
-    then NSE API and BSE as fallbacks.
-    Structure: {output_base_dir}/{company_folder}/{year}/{filename}.pdf
-    Tries Google Search first (better for standalone BRSR), then NSE API, then BSE.
+    Download BRSR report using Google Search (prioritizes standalone BRSR).
+    Downloads to single flat folder: brsr_reports/final/{filename}.pdf
+    Uses naming convention from Excel. Skips download if file already exists.
     
     Args:
         company_name: Company name (used for folder name)
@@ -186,17 +185,10 @@ def download_brsr_report(
     if nse_downloader is None:
         nse_downloader = NSEDownloader(rate_limit_delay=NSE_RATE_LIMIT_DELAY)
     
-    # Create company folder structure: {company}/{year}/
-    # Use serial number + symbol for company folder name if serial_number available
-    from pipeline.file_naming import clean_company_name
-    if serial_number is not None:
-        company_folder = f"{serial_number}_{symbol.upper()}"
-    else:
-        company_folder = symbol.upper() if symbol else clean_company_name(company_name)
-    
-    company_dir = Path(output_base_dir) / company_folder
-    year_dir = company_dir / year
-    year_dir.mkdir(parents=True, exist_ok=True)
+    # Use single flat folder: brsr_reports/downloads/ (no nested subfolders)
+    # All PDFs go directly to downloads folder with correct naming
+    downloads_folder = Path(output_base_dir)  # Already points to brsr_reports/downloads
+    downloads_folder.mkdir(parents=True, exist_ok=True)
     
     # Only try NSE API - skip if symbol not available or fails
     if not symbol or not symbol.strip():
@@ -209,65 +201,78 @@ def download_brsr_report(
             'report_type': None
         }
     
-    # Format filename: Use naming_convention from Excel if provided, otherwise use default format
+    # Format filename: Use naming_convention from Excel (same logic as manual_renamer)
     if naming_convention and naming_convention.strip():
-        # Use exact naming convention from Excel/CSV - preserve as-is
-        filename = naming_convention
+        # Use exact naming convention from Excel/CSV - preserve format exactly
+        filename = str(naming_convention).strip()
         
-        # Replace common placeholders if they exist (case-insensitive) - these are useful dynamic values
-        # Replace {year}, {YEAR}, {Year} with actual year
+        # Replace {year} placeholder with actual year (case-insensitive)
         filename = re.sub(r'\{year\}', year, filename, flags=re.IGNORECASE)
         
-        # Replace hardcoded years in naming convention with the actual year being processed
-        # The Excel naming convention may have hardcoded years (e.g., "2023_24" or "2023-24") as examples
-        # We need to replace ANY year pattern with the actual year being processed
-        # Detect the format used in the naming convention (underscore or dash) and match it
+        # Extract year components for replacement
+        year_parts = year.split('-')
+        year_start = year_parts[0] if len(year_parts) > 0 else year
+        year_end_short = year_parts[1] if len(year_parts) > 1 else ""
+        year_end_full = str(int(year_start) + 1) if year_start.isdigit() else ""
         
-        # First, check what format the naming convention uses for years
-        # Look for patterns like _2023_24 or 2023-24 in the filename
-        year_underscore = year.replace('-', '_')  # Convert "2023-24" to "2023_24"
+        # Replace any existing year pattern in the naming convention with extracted year
+        # IMPORTANT: Order matters - check longer patterns first to avoid partial matches
+        original_filename = filename  # Save original to check patterns
         
-        # Replace any 4-digit_2-digit year pattern (e.g., 2023_24, 2024_25) with actual year (underscore format)
-        filename = re.sub(r'\d{4}_\d{2}', year_underscore, filename)
-        # Replace any 4-digit-2-digit year pattern (e.g., 2023-24, 2024-25) with actual year (dash format)
-        filename = re.sub(r'\d{4}-\d{2}', year, filename)
-        # Replace any 4-digit_4-digit year pattern (e.g., 2023_2024, 2024_2025) with actual year (underscore format)
-        # Convert year like "2023-24" to "2023_2024" format
-        year_start = year.split('-')[0]  # Get "2023" from "2023-24"
-        year_end = year_start[:2] + year.split('-')[1]  # Get "2024" from "2023-24" -> "20" + "24"
-        filename = re.sub(r'\d{4}_\d{4}', f'{year_start}_{year_end}', filename)
+        # Pattern 1: YYYY_YYYY format (e.g., 2023_2024)
+        if year_end_full and re.search(r'(\d{4})_(\d{4})', original_filename):
+            old_pattern = r'(\d{4})_(\d{4})'
+            new_value = f"{year_start}_{year_end_full}"
+            filename = re.sub(old_pattern, new_value, filename, count=1)
         
-        # Replace {symbol}, {SYMBOL}, {Symbol} with actual symbol
-        filename = re.sub(r'\{symbol\}', symbol.upper(), filename, flags=re.IGNORECASE)
-        # Replace {serial}, {SERIAL}, {serial_number}, {SERIAL_NUMBER} with serial number if available
-        if serial_number is not None:
+        # Pattern 2: YYYY-YYYY format (e.g., 2023-2024)
+        elif year_end_full and re.search(r'(\d{4})-(\d{4})', original_filename):
+            old_pattern = r'(\d{4})-(\d{4})'
+            new_value = f"{year_start}-{year_end_full}"
+            filename = re.sub(old_pattern, new_value, filename, count=1)
+        
+        # Pattern 3: YYYY_YY format (e.g., 2023_24)
+        elif year_end_short and re.search(r'(\d{4})_(\d{2})(?!\d)', original_filename):
+            old_pattern = r'(\d{4})_(\d{2})(?!\d)'
+            new_value = year.replace('-', '_')
+            filename = re.sub(old_pattern, new_value, filename, count=1)
+        
+        # Pattern 4: YYYY-YY format (e.g., 2023-24)
+        elif year_end_short and re.search(r'(\d{4})-(\d{2})(?!\d)', original_filename):
+            old_pattern = r'(\d{4})-(\d{2})(?!\d)'
+            new_value = year
+            filename = re.sub(old_pattern, new_value, filename, count=1)
+        
+        # Replace {symbol} placeholder if it exists (case-insensitive)
+        if symbol:
+            filename = re.sub(r'\{symbol\}', symbol, filename, flags=re.IGNORECASE)
+        
+        # Replace {serial} placeholder if it exists (case-insensitive)
+        if serial_number:
             filename = re.sub(r'\{serial(_number)?\}', str(serial_number), filename, flags=re.IGNORECASE)
         
-        # ONLY remove strictly illegal filesystem characters to prevent crashes
-        # Do NOT replace with underscores - just remove illegal chars
-        # Illegal characters: / \ : * ? " < > |
+        # ONLY remove strictly illegal filesystem characters (preserve everything else)
         illegal_chars = ['/', '\\', ':', '*', '?', '"', '<', '>', '|']
         for char in illegal_chars:
-            filename = filename.replace(char, '')
+            filename = filename.replace(char, '_')  # Replace with underscore
         
-        # Do NOT replace spaces with underscores - preserve internal spaces
-        # Do NOT change casing - preserve exact casing
-        # Strip ONLY leading/trailing whitespace (necessary for filesystem, but preserve internal spaces)
         filename = filename.strip()
         
-        # Ensure .pdf extension exists (case-insensitive check)
-        if not filename.lower().endswith('.pdf'):
-            filename = f"{filename}.pdf"
+        # Remove .pdf extension if present (we'll add it later)
+        if filename.lower().endswith('.pdf'):
+            filename = filename[:-4]
+        
+        filename = f"{filename}.pdf"
     else:
         # Fall back to default naming format
         filename = format_filename(company_name, year, is_standalone=True, symbol=symbol, serial_number=serial_number)
     
-    output_path = year_dir / filename
+    output_path = downloads_folder / filename
     
     # Check if already downloaded - if PDF exists, don't touch it (skip download)
     # This protects existing PDFs from being replaced
-    if output_path.exists():
-        logger.info(f"✓ PDF already exists, skipping download: {company_folder}/{year}/{filename}")
+    if output_path.exists() and is_valid_pdf(output_path):
+        logger.info(f"✓ PDF already exists, skipping download: {filename}")
         return {
             'success': True,
             'file_path': str(output_path),
@@ -290,7 +295,7 @@ def download_brsr_report(
         )
         
         if success_google:
-            logger.info(f"✓ Successfully downloaded via Google Search: {company_folder}/{year}/{filename}")
+            logger.info(f"✓ Successfully downloaded via Google Search: {filename}")
             return {
                 'success': True,
                 'file_path': str(output_path),
@@ -386,7 +391,7 @@ class DownloadManager:
     def is_downloaded(self, symbol: str, year: str, serial_number: Optional[int] = None) -> bool:
         """
         Check if report is already downloaded.
-        Uses company-based folder structure: {company}/{year}/
+        Uses status CSV to check download status.
         
         Args:
             symbol: Company symbol
@@ -396,26 +401,13 @@ class DownloadManager:
         Returns:
             True if already downloaded
         """
-        # Check status CSV
+        # Check status CSV (primary method)
         if not self.status_df.empty:
             mask = (self.status_df['symbol'] == symbol) & (self.status_df['year'] == year)
             if serial_number is not None:
                 mask = mask & (self.status_df['serial_number'] == serial_number)
             downloaded = self.status_df[mask]
             if not downloaded.empty and downloaded.iloc[0]['status'] == 'Downloaded':
-                return True
-        
-        # Check if file exists in company/year folder structure
-        if serial_number is not None:
-            company_folder = f"{serial_number}_{symbol.upper()}"
-        else:
-            company_folder = symbol.upper()
-        
-        company_dir = self.output_base_dir / company_folder / year
-        if company_dir.exists():
-            # Check if any PDF exists in the year folder
-            pdf_files = list(company_dir.glob("*.pdf"))
-            if pdf_files:
                 return True
         
         return False
