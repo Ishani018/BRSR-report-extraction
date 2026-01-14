@@ -278,15 +278,21 @@ def clean_text(text: str) -> str:
     
     # Step 2: Normalize Unicode
     text = normalize_unicode(text)
+
+    # Step 3: Fix hyphenated/split words across line breaks (logic-first)
+    text = fix_split_words(text)
     
-    # Step 3: Remove noise patterns
+    # Step 4: Remove noise patterns
     text = remove_noise_patterns(text)
     
-    # Step 4: Fix broken lines
+    # Step 5: Fix broken lines
     text = fix_broken_lines(text)
     
-    # Step 5: Remove extra whitespace
+    # Step 6: Remove extra whitespace
     text = remove_extra_whitespace(text)
+
+    # Step 7: Standardize empty table cells for pipe-delimited rows
+    text = standardize_table_placeholders(text, placeholder="N/A")
     
     return text
 
@@ -431,6 +437,15 @@ def fix_reversed_text(text: str) -> str:
         'no',   # 'on' reversed
         'sa',   # 'as' (though 'as' is palindrome)
         'ti',   # 'it' reversed
+        # Reversed table/header tokens commonly seen in BRSR tables
+        'latot',  # total
+        'on',     # no
+        'etad',   # date
+        'eman',   # name
+        'srs',    # sr.s
+        'sl',     # sl
+        'rni',    # inr
+        'sy',     # yes
     }
     
     lines = text.split('\n')
@@ -463,3 +478,38 @@ def fix_reversed_text(text: str) -> str:
             fixed_lines.append(line)
     
     return '\n'.join(fixed_lines)
+
+
+def fix_split_words(text: str) -> str:
+    """
+    Rejoin words split by hyphen + newline.
+    Example: "environ-\\nment" -> "environment"
+    
+    Constraint:
+    - Only merge when both sides are alphabetic word parts (avoid list items/codes).
+    """
+    # Match "Word-\\nWord" or "Word- \\nWord"
+    # Require alphabetic on both sides.
+    pattern = re.compile(r'([A-Za-z]{2,})-\s*\n\s*([A-Za-z]{2,})')
+    return pattern.sub(r'\1\2', text)
+
+
+def standardize_table_placeholders(text: str, placeholder: str = "N/A") -> str:
+    """
+    Standardize empty values in pipe-delimited table rows.
+    If a line contains '|' and has empty segments, replace empties with placeholder.
+    Example: "A |  | C" -> "A | N/A | C"
+    """
+    lines = text.split('\n')
+    out_lines = []
+    
+    for line in lines:
+        if '|' not in line:
+            out_lines.append(line)
+            continue
+        
+        parts = [p.strip() for p in line.split('|')]
+        parts = [p if p != '' else placeholder for p in parts]
+        out_lines.append(' | '.join(parts))
+    
+    return '\n'.join(out_lines)
