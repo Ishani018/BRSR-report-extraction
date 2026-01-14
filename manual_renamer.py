@@ -244,6 +244,162 @@ class ManualPDFRenamer:
         
         return None
     
+    def match_company_by_symbol_in_content(self, pdf_text: str) -> Optional[Dict]:
+        """
+        Try to match company by symbol in PDF content (HIGH PRIORITY, STRICT MATCHING).
+        Requires symbol to appear in context with company name to avoid false matches.
+        
+        Args:
+            pdf_text: Extracted text from PDF
+            
+        Returns:
+            Company dictionary if matched, None otherwise
+        """
+        if not pdf_text:
+            return None
+        
+        pdf_text_lower = pdf_text.lower()
+        pdf_text_upper = pdf_text.upper()
+        
+        # Short/ambiguous symbols that might appear as exchanges or references
+        # These need stronger context (company name nearby)
+        ambiguous_symbols = {'BSE', 'NSE', 'SEBI', 'NIFTY', 'SENSEX', 'MCX'}
+        
+        # Search for symbols in PDF content (first 3 pages priority for cover page)
+        first_part = pdf_text_lower[:3000]  # First ~3000 chars (roughly first 2-3 pages, cover area)
+        first_part_upper = pdf_text_upper[:3000]
+        
+        best_match = None
+        best_score = 0
+        
+        # Priority: Check for symbols in first part of document (higher confidence)
+        for symbol, company_data in self.symbol_lookup.items():
+            symbol_upper = symbol.upper()
+            
+            # CRITICAL: Skip ambiguous symbols entirely when matching from PDF content
+            # These symbols (BSE, NSE, etc.) appear in many PDFs as regulatory references
+            # and cause false matches. Only allow them to match from filenames.
+            is_ambiguous = symbol_upper in ambiguous_symbols
+            if is_ambiguous:
+                continue  # Skip ambiguous symbols completely in PDF content matching
+            
+            company_name = company_data['company_name'].lower()
+            company_words = [w.strip().rstrip('.,;:') for w in company_name.split() if len(w.strip()) > 2]
+            
+            # Use word boundary to ensure it's not part of a larger word
+            pattern = rf'\b{re.escape(symbol_upper)}\b'
+            
+            # Check if symbol appears in first part
+            symbol_match = re.search(pattern, first_part_upper)
+            if not symbol_match:
+                continue
+            
+            score = 100  # Base score for symbol in first part
+            
+            # Prefer if company name appears
+            for word in company_words:
+                if word in first_part:
+                    score += 100
+                    break
+            
+            if score > best_score:
+                best_match = company_data
+                best_score = score
+                logger.info(f"Found symbol '{symbol}' in PDF content (first pages, score: {score})")
+        
+        if best_match:
+            return best_match
+        
+        # Fallback: Check entire text if not found in first part (with even stricter rules)
+        for symbol, company_data in self.symbol_lookup.items():
+            symbol_upper = symbol.upper()
+            company_name = company_data['company_name'].lower()
+            company_words = [w.strip().rstrip('.,;:') for w in company_name.split() if len(w.strip()) > 2]
+            
+            is_ambiguous = symbol_upper in ambiguous_symbols
+            
+            # Skip ambiguous symbols in fallback (too risky)
+            if is_ambiguous:
+                continue
+            
+            pattern = rf'\b{re.escape(symbol_upper)}\b'
+            if re.search(pattern, pdf_text_upper):
+                # Still prefer if company name appears
+                company_found = any(word in pdf_text_lower for word in company_words)
+                if company_found:
+                    logger.info(f"Matched by symbol in PDF content (anywhere): {symbol}")
+                    return company_data
+        
+        return None
+    
+    def verify_company_match(self, pdf_text: str, company_data: Dict) -> bool:
+        """
+        Verify that a matched company actually appears in the PDF.
+        This is critical to prevent false matches (e.g., "BSE" matching when it's just a reference to the exchange).
+        
+        Args:
+            pdf_text: Extracted text from PDF
+            company_data: Matched company dictionary
+            
+        Returns:
+            True if company name appears prominently in PDF, False otherwise
+        """
+        if not pdf_text or len(pdf_text.strip()) < 50:
+            return False
+        
+        company_name = company_data['company_name']
+        symbol = company_data.get('symbol', '').upper()
+        company_name_lower = company_name.lower()
+        pdf_text_lower = pdf_text.lower()
+        
+        # Ambiguous symbols that commonly appear as references (exchanges, regulators)
+        ambiguous_symbols = {'BSE', 'NSE', 'SEBI', 'NIFTY', 'SENSEX', 'MCX'}
+        
+        # For ambiguous symbols, STRICTLY require full company name (not just symbol)
+        if symbol in ambiguous_symbols:
+            # Must have full company name in first 3000 chars (cover page)
+            first_part = pdf_text_lower[:3000]
+            if company_name_lower not in first_part:
+                return False
+            return True
+        
+        # Check first 3000 chars (cover page area) for company name
+        first_part = pdf_text_lower[:3000]
+        
+        # Common words to ignore
+        common_words = {
+            'limited', 'ltd', 'ltd.', 'india', 'private', 'public', 'corporation',
+            'corp', 'corp.', 'inc', 'inc.', 'incorporated', 'company', 'co', 'co.'
+        }
+        
+        # Extract significant words from company name
+        company_words = [
+            w.rstrip('.,;:').lower() 
+            for w in company_name.split() 
+            if len(w.rstrip('.,;:')) > 2 and w.rstrip('.,;:').lower() not in common_words
+        ]
+        
+        # Priority 1: Full company name appears in first part (highest confidence)
+        if company_name_lower in first_part:
+            return True
+        
+        # Priority 2: For multi-word names, check if at least 2 significant words appear together
+        if len(company_words) >= 2:
+            found_words = sum(1 for word in company_words if word in first_part)
+            if found_words >= 2:
+                return True
+        
+        # Priority 3: For single-word names, must appear in first part
+        if len(company_words) == 1:
+            return company_words[0] in first_part
+        
+        # Priority 4: Fallback - check full text if not in first part
+        if company_name_lower in pdf_text_lower:
+            return True
+        
+        # If all checks fail, it's likely a false match
+        return False
+    
     def match_company_by_content(self, pdf_text: str) -> Optional[Dict]:
         """
         Match company by content using STRICT sector-aware matching.
@@ -260,6 +416,15 @@ class ManualPDFRenamer:
         first_page_text = pdf_text[:2000].lower()
         pdf_text_lower = pdf_text.lower()
         
+        # BLACKLIST: Companies that appear frequently in regulatory text and cause false matches
+        # These should NOT be matched through content matching (only from filename)
+        blacklisted_companies = {
+            'bse limited', 'bse ltd',
+            'nse limited', 'nse ltd',
+            'bombay stock exchange limited',
+            'national stock exchange of india limited'
+        }
+        
         # Common words to ignore when matching
         common_words = {
             'limited', 'ltd', 'ltd.', 'india', 'private', 'public', 'corporation',
@@ -271,7 +436,7 @@ class ManualPDFRenamer:
         generic_names = {
             'bank', 'power', 'infra', 'finance', 'capital', 'global', 'infrastructure',
             'financial', 'insurance', 'cement', 'pharma', 'pharmaceuticals', 'energy',
-            'realty', 'housing', 'holdings', 'investment'
+            'realty', 'housing', 'holdings', 'investment', 'clean', 'electrical', 'electrics'
         }
         
         best_match = None
@@ -283,6 +448,10 @@ class ManualPDFRenamer:
                 continue
             
             company_name_lower = company_name.lower()
+            
+            # Skip blacklisted companies (they appear too frequently as regulatory references)
+            if company_name_lower in blacklisted_companies:
+                continue
             
             # Strategy 1: Check if full company name appears on first page (highest confidence)
             if company_name_lower in first_page_text:
@@ -616,13 +785,23 @@ class ManualPDFRenamer:
         logger.info(f"Processing: {pdf_path.name}")
         logger.info(f"{'='*60}")
         
-        # Step A: Try symbol match from filename
+        # Step A: PRIORITY 1 - Try symbol match from filename (FASTEST)
         company_data = self.match_company_by_symbol(pdf_path.name)
+        matched_by_symbol_filename = company_data is not None
         
-        # Step B: If no symbol match, try content matching
-        if not company_data:
-            logger.info("No symbol match found, extracting text for content matching...")
-            # Try with more pages for scanned PDFs
+        if matched_by_symbol_filename:
+            logger.info(f"✓ Matched by SYMBOL in filename: {company_data['symbol']}")
+            # Extract text to verify company name appears in PDF
+            pdf_text_for_verification = self.extract_text_from_pdf(pdf_path, max_pages=5)
+            if not self.verify_company_match(pdf_text_for_verification, company_data):
+                logger.warning(f"⚠ VERIFICATION FAILED: Symbol '{company_data['symbol']}' matched from filename, but company name '{company_data['company_name']}' not found in PDF")
+                logger.warning(f"   This is likely a false match. Trying alternative matching...")
+                company_data = None  # Reject this match
+                matched_by_symbol_filename = False
+        
+        if not matched_by_symbol_filename:
+            # Step B: PRIORITY 2 - Extract text and search for symbol in PDF content (HIGH PRIORITY)
+            logger.info("No valid symbol match in filename, extracting text to search for symbol in PDF content...")
             pdf_text = self.extract_text_from_pdf(pdf_path, max_pages=10)
             
             if not pdf_text or len(pdf_text.strip()) < 50:
@@ -630,28 +809,48 @@ class ManualPDFRenamer:
                 logger.warning("Please ensure the PDF contains selectable text, or add company symbol to filename")
                 return False, "Could not extract sufficient text from PDF (might be scanned - try adding company symbol to filename)"
             
-            company_data = self.match_company_by_content(pdf_text)
+            # PRIORITY: Search for symbol in PDF content first
+            company_data = self.match_company_by_symbol_in_content(pdf_text)
+            matched_by_symbol_content = company_data is not None
+            
+            if matched_by_symbol_content:
+                logger.info(f"✓ Matched by SYMBOL in PDF content: {company_data['symbol']}")
+                # Verify company name appears in PDF (already extracted text)
+                if not self.verify_company_match(pdf_text, company_data):
+                    logger.warning(f"⚠ VERIFICATION FAILED: Symbol '{company_data['symbol']}' found in PDF, but company name '{company_data['company_name']}' not found prominently")
+                    logger.warning(f"   This is likely a false match (e.g., 'BSE' referring to exchange). Trying alternative matching...")
+                    company_data = None  # Reject this match
+                    matched_by_symbol_content = False
+            
+            if not matched_by_symbol_content:
+                # Step C: FALLBACK - Try content matching (company name) ONLY if symbol match failed
+                logger.info("No valid symbol match found, trying company name matching...")
+                company_data = self.match_company_by_content(pdf_text)
+                
+                if company_data:
+                    logger.info(f"✓ Matched by COMPANY NAME in content: {company_data['company_name']}")
+                    # Verify (should already be validated by match_company_by_content, but double-check)
+                    if not self.verify_company_match(pdf_text, company_data):
+                        logger.warning(f"⚠ VERIFICATION FAILED: Company name match failed verification")
+                        company_data = None
+                else:
+                    return False, "Could not identify company (no valid symbol match, no company name match)"
         
         if not company_data:
-            return False, "Could not identify company (no symbol match, no content match)"
-        
-        # Verify the match is reasonable by checking company name appears in PDF
-        # Re-extract text for verification (use first 2 pages)
-        pdf_text_verification = self.extract_text_from_pdf(pdf_path, max_pages=2)
-        company_name_lower = company_data['company_name'].lower()
-        
-        if company_name_lower not in pdf_text_verification.lower():
-            # Double-check: maybe the name appears later
-            pdf_text_full = self.extract_text_from_pdf(pdf_path, max_pages=5)
-            if company_name_lower not in pdf_text_full.lower():
-                logger.warning(f"⚠ Warning: Matched company '{company_data['company_name']}' but name not clearly found in PDF")
-                logger.warning(f"   This might be a false match. Please verify manually.")
+            return False, "Could not identify company (all matches failed verification)"
         
         logger.info(f"✓ Identified company: {company_data['company_name']} ({company_data['symbol']})")
         
         # Step 3: Extract year from PDF content (primary source) - MUST be accurate
         logger.info("Extracting year from PDF content (reading first 15 pages)...")
-        pdf_text = self.extract_text_from_pdf(pdf_path, max_pages=15)  # Extract more pages for better year detection
+        # Reuse pdf_text if already extracted (for efficiency), otherwise extract now
+        if 'pdf_text' not in locals() or len(pdf_text) < 100:
+            pdf_text = self.extract_text_from_pdf(pdf_path, max_pages=15)  # Extract more pages for better year detection
+        else:
+            # If we already have text, try to get more pages for year extraction
+            pdf_text_extended = self.extract_text_from_pdf(pdf_path, max_pages=15)
+            if len(pdf_text_extended) > len(pdf_text):
+                pdf_text = pdf_text_extended
         
         if not pdf_text or len(pdf_text.strip()) < 50:
             logger.warning(f"⚠ Could not extract sufficient text from PDF (got {len(pdf_text) if pdf_text else 0} chars)")
@@ -670,73 +869,25 @@ class ManualPDFRenamer:
             logger.warning(f"⚠ No year found in PDF content for {pdf_path.name}")
             logger.warning(f"   PDF text length: {len(pdf_text) if pdf_text else 0} chars")
         
-        # If no year found in PDF content, try filename as fallback
+        # STRICT: Only trust year from PDF content, NOT from filename
+        # If no year found in PDF content, ask user for input
         if not year:
-            logger.info("No year found in PDF content, checking filename as fallback...")
-            filename_lower = pdf_path.stem.lower()
+            logger.warning(f"⚠ Could not extract year from PDF content: {pdf_path.name}")
+            logger.warning(f"   Company: {company_data['company_name']}")
+            logger.warning(f"   Available years: {', '.join(BRSR_FINANCIAL_YEARS)}")
+            logger.warning(f"   Note: Year must be extracted from PDF content, not from filename")
+            print(f"\n⚠ Could not extract year from PDF content: {pdf_path.name}")
+            print(f"   Company: {company_data['company_name']}")
+            print(f"   Available years: {', '.join(BRSR_FINANCIAL_YEARS)}")
+            print(f"   Note: Year must be extracted from PDF content (not filename)")
             
-            # Check filename for year patterns
-            filename_year_patterns = [
-                r'\b(20\d{2})[-_](\d{2})\b',  # 2023-24 or 2023_24
-                r'\b(20\d{2})\b',  # Just year like 2024
-                r'fy[\s_-]?(\d{2})\b',  # FY24 (fixed: dash at end of character class)
-                r'csr(\d{2})\b',  # csr22 (corporate sustainability report 2022)
-            ]
-            
-            for pattern in filename_year_patterns:
-                match = re.search(pattern, filename_lower)
-                if match:
-                    if len(match.groups()) == 2:
-                        start, end = match.groups()
-                        try:
-                            start_int = int(start)
-                            end_int = int(end)
-                            if end_int == (start_int % 100) + 1 or end_int == start_int % 100:
-                                year = f"{start}-{end}"
-                                logger.info(f"Found year in filename (fallback): {year}")
-                                break
-                        except ValueError:
-                            pass
-                    elif len(match.groups()) == 1:
-                        year_str = match.group(1)
-                        try:
-                            year_int = int(year_str)
-                            if len(year_str) == 2:  # FY24 or csr22 format
-                                if year_int < 50:
-                                    full_year = 2000 + year_int
-                                else:
-                                    full_year = 1900 + year_int
-                                prev_year = full_year - 1
-                                year = f"{prev_year}-{year_str}"
-                                logger.info(f"Found year in filename (fallback, 2-digit format): {year}")
-                                break
-                            elif len(year_str) == 4:  # 2024 format
-                                for config_year in BRSR_FINANCIAL_YEARS:
-                                    if config_year.startswith(year_str):
-                                        year = config_year
-                                        logger.info(f"Found year in filename (fallback): {year}")
-                                        break
-                                if year:
-                                    break
-                        except ValueError:
-                            pass
-            
-            # If still no year, ask user
-            if not year:
-                logger.warning(f"⚠ Could not extract year from: {pdf_path.name}")
-                logger.warning(f"   Company: {company_data['company_name']}")
-                logger.warning(f"   Available years: {', '.join(BRSR_FINANCIAL_YEARS)}")
-                print(f"\n⚠ Could not extract year from: {pdf_path.name}")
-                print(f"   Company: {company_data['company_name']}")
-                print(f"   Available years: {', '.join(BRSR_FINANCIAL_YEARS)}")
-                
-                user_input = input("   Enter year (or press Enter to use default): ").strip()
-                if user_input:
-                    year = user_input
-                else:
-                    # Use first configured year as default
-                    year = BRSR_FINANCIAL_YEARS[0] if BRSR_FINANCIAL_YEARS else "2023-24"
-                    logger.info(f"Using default year: {year}")
+            user_input = input("   Enter year (or press Enter to skip): ").strip()
+            if user_input:
+                year = user_input
+                logger.info(f"Using user-provided year: {year}")
+            else:
+                logger.warning(f"Skipping file - year not found in PDF content and user declined to provide")
+                return False, "Year not found in PDF content (and user declined to provide)"
         
         logger.info(f"✓ Extracted year: {year}")
         
