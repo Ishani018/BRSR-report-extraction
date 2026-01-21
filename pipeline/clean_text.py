@@ -1,5 +1,6 @@
 """
 Module for cleaning extracted text from PDFs.
+Robust logic-first approach to fix mashed words, reversed text, and preserve table alignment.
 """
 import logging
 import re
@@ -14,45 +15,117 @@ from config.config import MIN_LINE_LENGTH, HEADER_FOOTER_THRESHOLD
 logger = logging.getLogger(__name__)
 
 
-def remove_extra_whitespace(text: str) -> str:
+def is_mostly_english(text: str, threshold: float = 0.7) -> bool:
     """
-    Remove excessive whitespace while preserving paragraph structure and layout.
-    More conservative to maintain readability.
+    Check if text is mostly English (ASCII characters).
+    
+    Args:
+        text: Text to check
+        threshold: Minimum ratio of ASCII characters (0.0-1.0)
+        
+    Returns:
+        True if mostly English, False otherwise
+    """
+    if not text.strip():
+        return True  # Empty text is considered "English"
+    
+    ascii_count = sum(1 for char in text if 32 <= ord(char) < 127)
+    total_count = len(text)
+    
+    if total_count == 0:
+        return True
+    
+    ratio = ascii_count / total_count
+    return ratio >= threshold
+
+
+def filter_non_english_text(text: str) -> str:
+    """
+    Filter out non-English text, keeping only ASCII and common English characters.
+    Removes non-ASCII characters (Unicode characters from other languages).
+    
+    Args:
+        text: Input text that may contain non-English characters
+        
+    Returns:
+        Text with non-English characters removed or replaced with spaces
+    """
+    lines = text.split('\n')
+    filtered_lines = []
+    
+    for line in lines:
+        # Only keep ASCII printable characters (0x20-0x7E)
+        # This includes: letters, digits, spaces, and common punctuation
+        filtered_line = ''.join(char if 32 <= ord(char) < 127 else ' ' for char in line)
+        
+        # Collapse multiple spaces that might be created from removed characters
+        filtered_line = ' '.join(filtered_line.split())
+        
+        if filtered_line.strip():  # Keep line if it has content after filtering
+            filtered_lines.append(filtered_line)
+        else:
+            # If line is empty after filtering, keep the empty line to preserve structure
+            filtered_lines.append('')
+    
+    return '\n'.join(filtered_lines)
+
+
+def filter_non_english_lines(text: str) -> str:
+    """
+    Remove lines that are mostly non-English.
+    This provides stricter filtering by removing entire lines that don't meet the English threshold.
     
     Args:
         text: Input text
         
     Returns:
-        Cleaned text
+        Text with non-English lines removed
     """
-    # Replace tabs with spaces
-    text = text.replace('\t', '    ')
-    
-    # Replace multiple spaces with single space (but preserve intentional spacing)
     lines = text.split('\n')
-    cleaned_lines = []
+    filtered_lines = []
     
     for line in lines:
-        # Don't collapse spaces if line seems to be formatted (e.g., tables, aligned text)
-        if '  ' in line and len(line) > 20:
-            # Preserve formatting for what looks like tabular data
-            cleaned_lines.append(line.rstrip())
-        else:
-            # Normal line - collapse spaces
-            cleaned_lines.append(' '.join(line.split()))
+        # Keep line if it's mostly English OR if it's empty/short (might be formatting)
+        if not line.strip() or len(line.strip()) < 3 or is_mostly_english(line):
+            filtered_lines.append(line)
     
-    text = '\n'.join(cleaned_lines)
+    return '\n'.join(filtered_lines)
+
+
+def fix_mashed_words(text: str) -> str:
+    """
+    Fix concatenated/mashed words like 'KeyHighligFY24' or 'costynapmoC'.
+    Inserts spaces at CamelCase transitions and before number sequences.
     
-    # Replace excessive newlines (more than 3) with maximum 2
-    text = re.sub(r'\n{4,}', '\n\n', text)
+    Args:
+        text: Input text with potentially mashed words
+        
+    Returns:
+        Text with spaces inserted at word boundaries
+    """
+    # Pattern 1: Insert space before uppercase letter following lowercase (CamelCase)
+    # Example: "KeyHighlig" -> "Key Highlig"
+    text = re.sub(r'([a-z])([A-Z])', r'\1 \2', text)
+    
+    # Pattern 2: Insert space before number sequences following letters
+    # Example: "HighligFY24" -> "Highlig FY24"
+    text = re.sub(r'([a-zA-Z])(\d)', r'\1 \2', text)
+    
+    # Pattern 3: Insert space after number sequences before letters
+    # Example: "FY24Key" -> "FY24 Key"
+    text = re.sub(r'(\d)([A-Za-z])', r'\1 \2', text)
+    
+    # Pattern 4: Fix common reversed words that got mashed (e.g., "costynapmoC" -> "cost ynapmoC")
+    # Look for lowercase followed by reversed capitalization pattern
+    text = re.sub(r'([a-z]+)([a-z]+[A-Z]\b)', r'\1 \2', text)
     
     return text
 
 
 def fix_broken_lines(text: str) -> str:
     """
-    Attempt to fix lines that were broken by PDF extraction.
-    More conservative to avoid breaking intentional line breaks.
+    Merge sentences broken across lines by PDF extraction.
+    Smart logic: only merges when line is short and doesn't end with sentence punctuation.
     
     Args:
         text: Input text
@@ -73,18 +146,21 @@ def fix_broken_lines(text: str) -> str:
             i += 1
             continue
         
-        # If line is very short (< 40 chars) and doesn't end with punctuation or colon
-        # AND next line starts with lowercase, might be broken
-        if (len(line) < 40 and 
-            line and 
-            line[-1] not in '.!?:;,' and 
+        # Merge Condition: 
+        # - Line is short (< 80 chars)
+        # - Does NOT end with sentence punctuation (.!?:;)
+        # - Next line exists and starts with lowercase letter
+        if (len(line) < 80 and 
+            line[-1] not in '.!?:;' and 
             i + 1 < len(lines)):
             
             next_line = lines[i + 1].strip()
-            # Only merge if next line exists, starts with lowercase, and is not too short
-            if next_line and len(next_line) > 5 and next_line[0].islower():
-                # Merge lines
-                fixed_lines.append(line + ' ' + next_line)
+            # Check if next line starts with lowercase (likely continuation)
+            if next_line and next_line[0].islower():
+                # CRITICAL: Merge lines with explicit space separator to prevent word mashing
+                # Ensure line ends without space and next_line starts without space, then add space
+                merged = line.rstrip() + ' ' + next_line.lstrip()
+                fixed_lines.append(merged)
                 i += 2
                 continue
         
@@ -93,6 +169,349 @@ def fix_broken_lines(text: str) -> str:
     
     return '\n'.join(fixed_lines)
 
+
+def calculate_orientation_score(segment: str) -> float:
+    """
+    Calculate a score indicating how likely a segment is reversed.
+    Returns a value between 0.0 (normal) and 1.0 (definitely reversed).
+    More aggressive detection to catch more reversed text.
+    
+    Args:
+        segment: Text segment to analyze
+        
+    Returns:
+        Score between 0.0 and 1.0
+    """
+    segment = segment.strip()
+    if not segment or len(segment) < 2:
+        return 0.0
+    
+    score = 0.0
+    
+    # Signal 1: Word ends with capital letter but has lowercase elsewhere (STRONG SIGNAL)
+    # Strong indicator: "ynapmoC", "detimiL", "elbirianoS"
+    if re.search(r'[a-z]+[A-Z]\b', segment):
+        score += 0.8  # Increased from 0.6 - very strong indicator
+    
+    # Signal 2: Expanded reversed stopwords (more comprehensive)
+    reversed_stopwords = {
+        'eht', 'rof', 'dna', 'si', 'fo', 'ot', 'ni', 'no', 'ta', 'eh', 'ti',
+        'latot', 'etad', 'eman', 'srs', 'sl', 'rni', 'sy', 'tuo', 'sa', 'as',
+        'tel', 'hcum', 'ylluf', 'ecnegilletni', 'ecnegilletni', 'gnissecorp',
+        'tseb', 'evah', 'siht', 'taht', 'ylluf', 'flesym', 'gnissecorp',
+        'yllanif', 'gnidliub', 'ecnegilletni', 'yllacificeps'
+    }
+    words = re.findall(r'\b\w+\b', segment.lower())
+    if len(words) >= 1:  # Lowered threshold from 2 to 1
+        reversed_matches = sum(1 for word in words if word in reversed_stopwords)
+        if reversed_matches > 0:
+            match_ratio = reversed_matches / len(words) if words else 0
+            score += 0.5 * match_ratio  # Increased weight
+            # If ANY reversed stopword found, add bonus
+            if match_ratio >= 0.3:
+                score += 0.3
+    
+    # Signal 3: Punctuation at start but not at end
+    if segment and segment[0] in '.,;:' and segment[-1] not in '.,!?;:':
+        if len(segment) > 3:  # Lowered threshold from 5 to 3
+            score += 0.4  # Increased from 0.3
+    
+    # Signal 4: Check for common reversed patterns (e.g., "elbirianoS" = "Sustainability")
+    # Pattern: lowercase letters, then capital at end
+    if re.search(r'[a-z]{3,}[A-Z]\b', segment):
+        score += 0.4
+    
+    # Signal 5: Unusual capitalization patterns (lowercase word ending with capital)
+    # Check if words have reversed capitalization
+    word_patterns = re.findall(r'\b[a-z]+[A-Z]\b', segment)
+    if len(word_patterns) > 0:
+        score += 0.3 * min(len(word_patterns), 3)  # Cap at 3 patterns
+    
+    # Normalize score (cap at 1.0)
+    return min(1.0, score)
+
+
+def fix_reversed_text(text: str) -> str:
+    """
+    Detect and fix text segments that are visually reversed.
+    Cell-aware: splits by pipe first, evaluates each cell independently.
+    More aggressive detection to catch more reversed text.
+    
+    Args:
+        text: Input text that might contain reversed segments
+        
+    Returns:
+        Text with reversed segments fixed
+    """
+    def fix_segment(segment: str) -> str:
+        """
+        Fix a single text segment if it's reversed.
+        
+        Args:
+            segment: Text segment to fix
+            
+        Returns:
+            Fixed segment (reversed if detected as reversed, otherwise unchanged)
+        """
+        segment = segment.strip()
+        if not segment or len(segment) < 2:
+            return segment
+        
+        # Calculate orientation score
+        score = calculate_orientation_score(segment)
+        
+        # Lowered threshold from 0.5 to 0.35 for more aggressive detection
+        # This catches more reversed text while still avoiding false positives
+        if score >= 0.35:
+            fixed = segment[::-1]
+            logger.debug(f"Fixed reversed segment (score={score:.2f}): '{segment[:40]}...' -> '{fixed[:40]}...'")
+            return fixed
+        
+        return segment
+    
+    lines = text.split('\n')
+    fixed_lines = []
+    
+    for line in lines:
+        if not line.strip():
+            fixed_lines.append(line)
+            continue
+        
+        # Check if line contains table separators (pipe characters)
+        if '|' in line:
+            # Split by pipe and process each cell independently
+            segments = line.split('|')
+            fixed_segments = []
+            for seg in segments:
+                # Preserve leading/trailing spaces around pipe, but clean segment content
+                fixed_seg = fix_segment(seg.strip())
+                fixed_segments.append(fixed_seg)
+            # Rejoin with pipe and ensure spaces around pipe to prevent word mashing
+            # This preserves table structure while ensuring word boundaries
+            fixed_line = ' | '.join(fixed_segments)
+            fixed_lines.append(fixed_line)
+        else:
+            # Regular line - process as a single segment
+            fixed_line = fix_segment(line)
+            fixed_lines.append(fixed_line)
+    
+    return '\n'.join(fixed_lines)
+
+
+def remove_noise(text: str) -> str:
+    """
+    Remove common PDF artifacts and noise patterns.
+    
+    Args:
+        text: Input text
+        
+    Returns:
+        Cleaned text
+    """
+    # Replace form feeds with newlines
+    text = text.replace('\f', '\n')
+    
+    # Remove zero-width spaces and other invisible characters
+    text = re.sub(r'[\u200b-\u200f\ufeff]', '', text)
+    
+    # Remove excessive dashes/underscores (often used for signature lines)
+    text = re.sub(r'-{5,}', '', text)
+    text = re.sub(r'_{5,}', '', text)
+    
+    # Remove lone special characters on their own lines (e.g., just `.` or `,`)
+    lines = text.split('\n')
+    cleaned_lines = []
+    for line in lines:
+        stripped = line.strip()
+        # Skip lines that are just special characters (but keep empty lines)
+        if stripped and not re.search(r'[\w]', stripped):
+            continue
+        cleaned_lines.append(line)
+    text = '\n'.join(cleaned_lines)
+    
+    return text
+
+
+def remove_extra_whitespace_smart(text: str) -> str:
+    """
+    Remove excessive whitespace with table-aware logic.
+    Only collapses multiple spaces if line does NOT contain pipe character.
+    
+    Args:
+        text: Input text
+        
+    Returns:
+        Cleaned text
+    """
+    # Replace tabs with 4 spaces
+    text = text.replace('\t', '    ')
+    
+    lines = text.split('\n')
+    cleaned_lines = []
+    
+    for line in lines:
+        # Check if line contains pipe character (table row)
+        if '|' in line:
+            # Table row: only strip leading/trailing whitespace, preserve internal spacing
+            cleaned_lines.append(line.strip())
+        else:
+            # Regular line: collapse multiple spaces into one
+            cleaned_lines.append(' '.join(line.split()))
+    
+    text = '\n'.join(cleaned_lines)
+    
+    # Replace excessive newlines (more than 3) with maximum 2
+    text = re.sub(r'\n{4,}', '\n\n', text)
+    
+    return text
+
+
+def clean_text(text: str) -> str:
+    """
+    Apply all cleaning operations in strict order:
+    0. Filter non-English text FIRST (English only)
+    1. Fix mashed words
+    2. Fix broken lines (merge split words)
+    3. Fix reversed text (cell-aware flip)
+    4. Remove noise (cleanup)
+    
+    Args:
+        text: Input text
+        
+    Returns:
+        Fully cleaned text (English only)
+    """
+    # Step 0: Filter non-English text FIRST (before any other processing)
+    # This removes all non-ASCII characters to ensure only English text passes through
+    text = filter_non_english_text(text)
+    
+    # Step 1: Fix mashed words (before any other processing)
+    text = fix_mashed_words(text)
+    
+    # Step 2: Fix broken lines (merge split sentences)
+    text = fix_broken_lines(text)
+    
+    # Step 3: Fix reversed text (cell-aware)
+    text = fix_reversed_text(text)
+    
+    # Step 4: Remove noise patterns
+    text = remove_noise(text)
+    
+    # Step 5: Smart whitespace (table-aware)
+    text = remove_extra_whitespace_smart(text)
+    
+    # Step 6: Normalize Unicode
+    text = normalize_unicode(text)
+    
+    # Step 7: Fix hyphenated/split words
+    text = fix_split_words(text)
+    
+    # Step 8: Standardize table placeholders
+    text = standardize_table_placeholders(text, placeholder="N/A")
+    
+    return text
+
+
+def normalize_unicode(text: str) -> str:
+    """
+    Normalize Unicode characters to standard forms using NFKC normalization
+    and additional mappings for corporate report characters.
+    
+    Args:
+        text: Input text
+        
+    Returns:
+        Normalized text
+    """
+    # Step 1: NFKC normalization (decomposes and recomposes characters)
+    text = unicodedata.normalize('NFKC', text)
+    
+    # Step 2: Map common "fancy" characters to ASCII equivalents
+    replacements = {
+        # Smart quotes
+        '\u2019': "'",  # Right single quotation mark
+        '\u2018': "'",  # Left single quotation mark
+        '\u201c': '"',  # Left double quotation mark
+        '\u201d': '"',  # Right double quotation mark
+        '\u2032': "'",  # Prime
+        '\u2033': '"',  # Double prime
+        
+        # Dashes
+        '\u2013': '-',  # En dash
+        '\u2014': '--', # Em dash
+        '\u2015': '--', # Horizontal bar
+        '\u2212': '-',  # Minus sign
+        
+        # Spaces
+        '\u00a0': ' ',  # Non-breaking space
+        '\u2000': ' ',  # En quad
+        '\u2001': ' ',  # Em quad
+        '\u2002': ' ',  # En space
+        '\u2003': ' ',  # Em space
+        '\u2009': ' ',  # Thin space
+        
+        # Bullet points
+        '\u2022': '•',  # Bullet
+        '\u25cf': '•',  # Black circle
+        '\u25cb': 'o',  # White circle
+        '\u2023': '>',  # Triangular bullet
+        '\u25aa': '▪',  # Black small square
+        '\u25ab': '▫',  # White small square
+        
+        # Other common characters
+        '\u00ae': '(R)',  # Registered sign
+        '\u00a9': '(C)',  # Copyright sign
+        '\u2122': '(TM)', # Trade mark sign
+        '\u00b0': 'deg',  # Degree sign
+        '\u00b1': '+/-',  # Plus-minus sign
+        '\u00d7': 'x',    # Multiplication sign
+        '\u00f7': '/',    # Division sign
+    }
+    
+    for old, new in replacements.items():
+        text = text.replace(old, new)
+    
+    return text
+
+
+def fix_split_words(text: str) -> str:
+    """
+    Rejoin words split by hyphen + newline.
+    Example: "environ-\\nment" -> "environment"
+    
+    Constraint:
+    - Only merge when both sides are alphabetic word parts (avoid list items/codes).
+    """
+    # Match "Word-\\nWord" or "Word- \\nWord"
+    # Require alphabetic on both sides.
+    pattern = re.compile(r'([A-Za-z]{2,})-\s*\n\s*([A-Za-z]{2,})')
+    return pattern.sub(r'\1\2', text)
+
+
+def standardize_table_placeholders(text: str, placeholder: str = "N/A") -> str:
+    """
+    Standardize empty values in pipe-delimited table rows.
+    If a line contains '|' and has empty segments, replace empties with placeholder.
+    Example: "A |  | C" -> "A | N/A | C"
+    """
+    lines = text.split('\n')
+    out_lines = []
+    
+    for line in lines:
+        if '|' not in line:
+            out_lines.append(line)
+            continue
+        
+        parts = [p.strip() for p in line.split('|')]
+        parts = [p if p != '' else placeholder for p in parts]
+        out_lines.append(' | '.join(parts))
+    
+    return '\n'.join(out_lines)
+
+
+# ============================================================================
+# Header/Footer Detection (for clean_pages)
+# ============================================================================
 
 def fuzzy_match_similar_lines(lines: List[str], similarity_threshold: float = 0.85) -> List[Set[str]]:
     """
@@ -236,67 +655,6 @@ def remove_headers_footers(text: str, patterns: Dict[str, Set[str]]) -> str:
     return '\n'.join(cleaned_lines)
 
 
-def remove_noise_patterns(text: str) -> str:
-    """
-    Remove common noise patterns from PDF extraction.
-    
-    Args:
-        text: Input text
-        
-    Returns:
-        Cleaned text
-    """
-    # Remove form feed characters
-    text = text.replace('\f', '\n')
-    
-    # Remove zero-width spaces and other invisible characters
-    text = re.sub(r'[\u200b-\u200f\ufeff]', '', text)
-    
-    # Remove excessive dashes/underscores (likely formatting artifacts)
-    text = re.sub(r'-{5,}', '', text)
-    text = re.sub(r'_{5,}', '', text)
-    
-    # Remove lone special characters on their own lines
-    text = re.sub(r'\n[^\w\s]\n', '\n', text)
-    
-    return text
-
-
-def clean_text(text: str) -> str:
-    """
-    Apply all cleaning operations to text.
-    
-    Args:
-        text: Input text
-        
-    Returns:
-        Fully cleaned text
-    """
-    # Apply cleaning operations in sequence
-    # Step 1: Fix reversed text early (before other operations)
-    text = fix_reversed_text(text)
-    
-    # Step 2: Normalize Unicode
-    text = normalize_unicode(text)
-
-    # Step 3: Fix hyphenated/split words across line breaks (logic-first)
-    text = fix_split_words(text)
-    
-    # Step 4: Remove noise patterns
-    text = remove_noise_patterns(text)
-    
-    # Step 5: Fix broken lines
-    text = fix_broken_lines(text)
-    
-    # Step 6: Remove extra whitespace
-    text = remove_extra_whitespace(text)
-
-    # Step 7: Standardize empty table cells for pipe-delimited rows
-    text = standardize_table_placeholders(text, placeholder="N/A")
-    
-    return text
-
-
 def clean_pages(pages: List[PageText]) -> List[PageText]:
     """
     Clean text for all pages, including header/footer removal.
@@ -344,172 +702,3 @@ def remove_short_lines(text: str, min_length: int = MIN_LINE_LENGTH) -> str:
     lines = text.split('\n')
     filtered_lines = [line for line in lines if len(line.strip()) >= min_length or line.strip() == '']
     return '\n'.join(filtered_lines)
-
-
-def normalize_unicode(text: str) -> str:
-    """
-    Normalize Unicode characters to standard forms using NFKC normalization
-    and additional mappings for corporate report characters.
-    
-    Args:
-        text: Input text
-        
-    Returns:
-        Normalized text
-    """
-    # Step 1: NFKC normalization (decomposes and recomposes characters)
-    text = unicodedata.normalize('NFKC', text)
-    
-    # Step 2: Map common "fancy" characters to ASCII equivalents
-    replacements = {
-        # Smart quotes
-        '\u2019': "'",  # Right single quotation mark
-        '\u2018': "'",  # Left single quotation mark
-        '\u201c': '"',  # Left double quotation mark
-        '\u201d': '"',  # Right double quotation mark
-        '\u2032': "'",  # Prime
-        '\u2033': '"',  # Double prime
-        
-        # Dashes
-        '\u2013': '-',  # En dash
-        '\u2014': '--', # Em dash
-        '\u2015': '--', # Horizontal bar
-        '\u2212': '-',  # Minus sign
-        
-        # Spaces
-        '\u00a0': ' ',  # Non-breaking space
-        '\u2000': ' ',  # En quad
-        '\u2001': ' ',  # Em quad
-        '\u2002': ' ',  # En space
-        '\u2003': ' ',  # Em space
-        '\u2009': ' ',  # Thin space
-        
-        # Bullet points
-        '\u2022': '•',  # Bullet
-        '\u25cf': '•',  # Black circle
-        '\u25cb': 'o',  # White circle
-        '\u2023': '>',  # Triangular bullet
-        '\u25aa': '▪',  # Black small square
-        '\u25ab': '▫',  # White small square
-        
-        # Other common characters
-        '\u00ae': '(R)',  # Registered sign
-        '\u00a9': '(C)',  # Copyright sign
-        '\u2122': '(TM)', # Trade mark sign
-        '\u00b0': 'deg',  # Degree sign
-        '\u00b1': '+/-',  # Plus-minus sign
-        '\u00d7': 'x',    # Multiplication sign
-        '\u00f7': '/',    # Division sign
-    }
-    
-    for old, new in replacements.items():
-        text = text.replace(old, new)
-    
-    return text
-
-
-def fix_reversed_text(text: str) -> str:
-    """
-    Detect and fix lines that are visually reversed.
-    Uses heuristic: if a significant percentage of words look like reversed
-    common stopwords, reverse the string back.
-    
-    Args:
-        text: Input text that might contain reversed lines
-        
-    Returns:
-        Text with reversed lines fixed
-    """
-    # Common English stopwords that when reversed might appear in corrupted text
-    reversed_stopwords = {
-        'eht',  # 'the' reversed
-        'rof',  # 'for' reversed
-        'dna',  # 'and' reversed
-        'si',   # 'is' reversed
-        'fo',   # 'of' reversed
-        'a',    # 'a' reversed (still 'a')
-        'ta',   # 'at' reversed
-        'ot',   # 'to' reversed
-        'ni',   # 'in' reversed
-        'eh',   # 'he' reversed
-        'as',   # 'sa' (might be 'as' reversed, though 'as' is palindrome)
-        'tuo',  # 'out' reversed
-        'no',   # 'on' reversed
-        'sa',   # 'as' (though 'as' is palindrome)
-        'ti',   # 'it' reversed
-        # Reversed table/header tokens commonly seen in BRSR tables
-        'latot',  # total
-        'on',     # no
-        'etad',   # date
-        'eman',   # name
-        'srs',    # sr.s
-        'sl',     # sl
-        'rni',    # inr
-        'sy',     # yes
-    }
-    
-    lines = text.split('\n')
-    fixed_lines = []
-    
-    for line in lines:
-        if not line.strip() or len(line.strip()) < 10:
-            # Skip very short lines
-            fixed_lines.append(line)
-            continue
-        
-        # Check words in the line
-        words = re.findall(r'\b\w+\b', line.lower())
-        
-        if len(words) < 3:
-            # Need at least 3 words to make a determination
-            fixed_lines.append(line)
-            continue
-        
-        # Count how many words match reversed stopwords
-        reversed_matches = sum(1 for word in words if word in reversed_stopwords)
-        match_ratio = reversed_matches / len(words) if words else 0
-        
-        # If >20% of words are reversed stopwords, likely reversed text
-        if match_ratio > 0.2:
-            # Reverse the line
-            fixed_lines.append(line[::-1])
-            logger.debug(f"Fixed reversed text: {line[:50]}... -> {line[::-1][:50]}...")
-        else:
-            fixed_lines.append(line)
-    
-    return '\n'.join(fixed_lines)
-
-
-def fix_split_words(text: str) -> str:
-    """
-    Rejoin words split by hyphen + newline.
-    Example: "environ-\\nment" -> "environment"
-    
-    Constraint:
-    - Only merge when both sides are alphabetic word parts (avoid list items/codes).
-    """
-    # Match "Word-\\nWord" or "Word- \\nWord"
-    # Require alphabetic on both sides.
-    pattern = re.compile(r'([A-Za-z]{2,})-\s*\n\s*([A-Za-z]{2,})')
-    return pattern.sub(r'\1\2', text)
-
-
-def standardize_table_placeholders(text: str, placeholder: str = "N/A") -> str:
-    """
-    Standardize empty values in pipe-delimited table rows.
-    If a line contains '|' and has empty segments, replace empties with placeholder.
-    Example: "A |  | C" -> "A | N/A | C"
-    """
-    lines = text.split('\n')
-    out_lines = []
-    
-    for line in lines:
-        if '|' not in line:
-            out_lines.append(line)
-            continue
-        
-        parts = [p.strip() for p in line.split('|')]
-        parts = [p if p != '' else placeholder for p in parts]
-        out_lines.append(' | '.join(parts))
-    
-    return '\n'.join(out_lines)

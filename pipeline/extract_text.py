@@ -87,14 +87,21 @@ def extract_text_with_table_support(page) -> str:
             current_top = non_table_words[0]['top'] if non_table_words else 0
             
             for word in non_table_words:
+                word_text = word['text'].strip()
+                if not word_text:
+                    continue
+                    
                 if abs(word['top'] - current_top) <= 5:
-                    current_line.append(word['text'])
+                    # Add word to current line (will be space-separated on join)
+                    current_line.append(word_text)
                 else:
+                    # New line - join current line with spaces and add newline
                     if current_line:
                         non_table_text += ' '.join(current_line) + '\n'
-                    current_line = [word['text']]
+                    current_line = [word_text]
                     current_top = word['top']
             
+            # Final line - ensure space-separated
             if current_line:
                 non_table_text += ' '.join(current_line) + '\n'
         
@@ -291,20 +298,26 @@ def extract_text_with_column_detection(page) -> str:
         current_top = word_list[0]['top']
         
         for word in word_list:
+            word_text = word['text'].strip()
+            if not word_text:
+                continue
+            
             # If word is on roughly the same line (within 5 pixels), add to current line
             if abs(word['top'] - current_top) <= 5:
-                current_line.append(word['text'])
+                # Ensure word is appended with space preservation
+                current_line.append(word_text)
             else:
-                # New line - save current line and start new one
+                # New line - save current line with space-separated words
                 if current_line:
                     lines.append(' '.join(current_line))
-                current_line = [word['text']]
+                current_line = [word_text]
                 current_top = word['top']
         
-        # Don't forget the last line
+        # Don't forget the last line - ensure space-separated
         if current_line:
             lines.append(' '.join(current_line))
         
+        # Join lines with newlines (which preserve word boundaries)
         return '\n'.join(lines)
     
     # Helper function to extract columns from a page section
@@ -326,7 +339,9 @@ def extract_text_with_column_detection(page) -> str:
                 # Both columns have content
                 left_text = words_to_text(left_col)
                 right_text = words_to_text(right_col)
-                return left_text + "\n\n" + right_text
+                # Join columns with double newline to preserve structure
+                # Each column already has words space-separated via words_to_text
+                return left_text.rstrip() + "\n\n" + right_text.lstrip()
         
         # No columns or insufficient content - extract as single block
         return words_to_text(page_words)
@@ -375,7 +390,9 @@ def extract_text_with_column_detection(page) -> str:
             if len(left_col) > 10 and len(right_col) > 10:
                 left_text = words_to_text(left_col)
                 right_text = words_to_text(right_col)
-                return left_text.strip() + "\n\n" + right_text.strip()
+                # Join columns with double newline to preserve structure
+                # Each column already has words space-separated via words_to_text
+                return left_text.rstrip() + "\n\n" + right_text.lstrip()
         
         # No structure detected - extract normally
         return page.extract_text(x_tolerance=3, y_tolerance=3) or ""

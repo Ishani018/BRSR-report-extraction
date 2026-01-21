@@ -19,13 +19,13 @@ Adani Green Energy,ADANIGREEN,17,Renamed,17_Adani Green Energy Ltd._2022_2023.pd
 Adani Ports and Special Economic Zone,ADANIPORTS,18,Not Found,,Renamed,18_Adani Ports and Special Economic Zone Ltd._2023_2024.pdf,Renamed,18_Adani Ports and Special Economic Zone Ltd._2024_2025.pdf
 Adani Power,ADANIPOWER,19,Renamed,19_Adani Power Ltd._2022_2023.pdf,Not Found,,Not Found,
 Adani Total Gas,ATGL,20,Not Found,,Renamed,20_Adani Total Gas Ltd._2023_2024.pdf,Renamed,20_Adani Total Gas Ltd._2024_2025.pdf
-Aditya Birla Capital,ABCAPITAL,21,Not Found,,Not Found,,Not Found,
+Aditya Birla Capital,ABCAPITAL,21,Not Found,,Renamed,21_Aditya Birla Capital Ltd._2023_2024.pdf,Not Found,
 Aditya Birla Fashion and Retail,ABFRL,22,Not Found,,Not Found,,Not Found,
 Aditya Birla Real Estate,ABREL,23,Not Found,,Not Found,,Not Found,
-Aditya Birla Sun Life AMC,ABSLAMC,24,Not Found,,Not Found,,Not Found,
-Aegis Logistics,AEGISLOG,25,Not Found,,Not Found,,Not Found,
-Afcons Infrastructure,AFCONS,26,Not Found,,Not Found,,Not Found,
-Affle 3i,AFFLE,27,Not Found,,Not Found,,Not Found,
+Aditya Birla Sun Life AMC,ABSLAMC,24,Renamed,24_Aditya Birla Sun Life AMC Ltd._2022_2023.pdf,Renamed,24_Aditya Birla Sun Life AMC Ltd._2023_2024.pdf,Renamed,24_Aditya Birla Sun Life AMC Ltd._2024_2025.pdf
+Aegis Logistics,AEGISLOG,25,Renamed,25_Aegis Logistics Ltd._2022_2023.pdf,Not Found,,Not Found,
+Afcons Infrastructure,AFCONS,26,Not Found,,Not Found,,Renamed,26_Afcons Infrastructure Ltd._2024_2025.pdf
+Affle 3i,AFFLE,27,Renamed,27_Affle 3i Ltd._2022_2023.pdf,Renamed,27_Affle 3i Ltd._2023_2024.pdf,Renamed,27_Affle 3i Ltd._2024_2025.pdf
 Ajanta Pharmaceuticals,AJANTPHARM,28,Not Found,,Not Found,,Not Found,
 Akums Drugs and Pharmaceuticals,AKUMS,29,Not Found,,Not Found,,Not Found,
 Alembic Pharmaceuticals,APLLTD,30,Not Found,,Renamed,30_Alembic Pharmaceuticals Ltd._2023_2024.pdf,Renamed,30_Alembic Pharmaceuticals Ltd._2024_2025.pdf
@@ -36,7 +36,7 @@ Alok Industries,ALOKINDS,34,Renamed,34_Alok Industries Ltd._2022_2023.pdf,Rename
 Amara Raja Energy & Mobility,ARE&M,35,Not Found,,Not Found,,Not Found,
 Amber Enterprises India,AMBER,36,Not Found,,Not Found,,Not Found,
 Ambuja Cements,AMBUJACEM,37,Not Found,,Not Found,,Not Found,
-Anand Rathi Wealth,ANANDRATHI,38,Not Found,,Not Found,,Not Found,
+Anand Rathi Wealth,ANANDRATHI,38,Renamed,38_Anand Rathi Wealth Ltd._2022_2023.pdf,Renamed,38_Anand Rathi Wealth Ltd._2023_2024.pdf,Renamed,38_Anand Rathi Wealth Ltd._2024_2025.pdf
 Anant Raj,ANANTRAJ,39,Not Found,,Not Found,,Not Found,
 Angel One,ANGELONE,40,Not Found,,Not Found,,Not Found,
 Apar Industries,APARINDS,41,Not Found,,Not Found,,Not Found,
@@ -49,8 +49,8 @@ Asian Paints,ASIANPAINT,47,Not Found,,Not Found,,Renamed,47_Asian Paints Ltd._20
 Aster DM Healthcare,ASTERDM,48,Renamed,48_Aster DM Healthcare Ltd._2022_2023.pdf,Renamed,48_Aster DM Healthcare Ltd._2023_2024.pdf,Renamed,48_Aster DM Healthcare Ltd._2024_2025.pdf
 AstraZenca Pharma India,ASTRAZEN,49,Not Found,,Not Found,,Not Found,
 Astral,ASTRAL,50,Not Found,,Renamed,50_Astral Ltd._2023_2024.pdf,Not Found,
-Atul,ATUL,51,Not Found,,Not Found,,Renamed,51_Atul Ltd._2024_2025.pdf
-Aurobindo Pharma,AUROPHARMA,52,Not Found,,Not Found,,Not Found,
+Atul,ATUL,51,Not Found,,Not Found,,Not Found,
+Aurobindo Pharma,AUROPHARMA,52,Renamed,52_Aurobindo Pharma Ltd._2022_2023.pdf,Renamed,52_Aurobindo Pharma Ltd._2023_2024.pdf,Not Found,
 Authum Investment & Infrastructure,AIIL,53,Not Found,,Not Found,,Not Found,
 Avenue Supermarts,DMART,54,Not Found,,Not Found,,Not Found,
 Axis Bank,AXISBANK,55,Renamed,55_Axis Bank Ltd._2022_2023.pdf,Renamed,55_Axis Bank Ltd._2023_2024.pdf,Renamed,55_Axis Bank Ltd._2024_2025.pdf
@@ -71,8 +71,8 @@ Bank of India,BANKINDIA,69,Renamed,69_Bank of India_2022_2023.pdf,Renamed,69_Ban
 Bank of Maharashtra,MAHABANK,70,Not Found,,Not Found,,Not Found,
 Bata India,BATAINDIA,71,Not Found,,Renamed,71_Bata India Ltd._2023_2024.pdf,Not Found,
 Bayer Cropscience,BAYERCROP,72,Not Found,,Not Found,,Not Found,
-Berger Paints India,BERGEPAINT,73,Not Found,,Not Found,,Not Found,
-Bharat Dynamics,BDL,74,Not Found,,Not Found,,Not Found,
+Berger Paints India,BERGEPAINT,73,Not Found,,Renamed,73_Berger Paints India Ltd._2023_2024.pdf,Not Found,
+Bharat Dynamics,BDL,74,Not Found,,Renamed,74_Bharat Dynamics Ltd._2023_2024.pdf,Not Found,
 Bharat Electronics,BEL,75,Not Found,,Not Found,,Not Found,
 Bharat Forge,BHARATFORG,76,Not Found,,Not Found,,Not Found,
 Bharat Heavy Electricals,BHEL,77,Not Found,,Not Found,,Not Found,
@@ -80,63 +80,63 @@ Bharat Petroleum Corporation,BPCL,78,Not Found,,Not Found,,Not Found,
 Bharti Airtel,BHARTIARTL,79,Not Found,,Not Found,,Not Found,
 Bharti Hexacom,BHARTIHEXA,80,Not Found,,Not Found,,Not Found,
 Bikaji Foods International,BIKAJI,81,Not Found,,Not Found,,Not Found,
-Biocon,BIOCON,82,Not Found,,Not Found,,Not Found,
+Biocon,BIOCON,82,Not Found,,Renamed,82_Biocon Ltd._2023_2024.pdf,Renamed,82_Biocon Ltd._2024_2025.pdf
 Birlasoft,BSOFT,83,Not Found,,Not Found,,Not Found,
-Blue Dart Express,BLUEDART,84,Not Found,,Not Found,,Not Found,
-Blue Star,BLUESTARCO,85,Not Found,,Not Found,,Not Found,
+Blue Dart Express,BLUEDART,84,Renamed,84_Blue Dart Express Ltd._2022_2023.pdf,Renamed,84_Blue Dart Express Ltd._2023_2024.pdf,Renamed,84_Blue Dart Express Ltd._2024_2025.pdf
+Blue Star,BLUESTARCO,85,Renamed,85_Blue Star Ltd._2022_2023.pdf,Renamed,85_Blue Star Ltd._2023_2024.pdf,Not Found,
 Bombay Burmah Trading Corporation,BBTC,86,Not Found,,Not Found,,Not Found,
 Bosch,BOSCHLTD,87,Renamed,87_Bosch Ltd._2022_2023.pdf,Renamed,87_Bosch Ltd._2023_2024.pdf,Renamed,87_Bosch Ltd._2024_2025.pdf
-Brainbees Solutions,FIRSTCRY,88,Not Found,,Not Found,,Not Found,
+Brainbees Solutions,FIRSTCRY,88,Not Found,,Not Found,,Renamed,88_Brainbees Solutions Ltd._2024_2025.pdf
 Brigade Enterprises,BRIGADE,89,Not Found,,Not Found,,Not Found,
-Britannia Industries,BRITANNIA,90,Not Found,,Not Found,,Not Found,
+Britannia Industries,BRITANNIA,90,Not Found,,Renamed,90_Britannia Industries Ltd._2023_2024.pdf,Renamed,90_Britannia Industries Ltd._2024_2025.pdf
 C.E. Info Systems,MAPMYINDIA,91,Not Found,,Not Found,,Not Found,
 CCL Products (I),CCL,92,Not Found,,Not Found,,Not Found,
-CESC,CESC,93,Not Found,,Not Found,,Not Found,
-CG Power and Industrial Solutions,CGPOWER,94,Not Found,,Not Found,,Not Found,
+CESC,CESC,93,Renamed,93_CESC Ltd._2022_2023.pdf,Not Found,,Not Found,
+CG Power and Industrial Solutions,CGPOWER,94,Renamed,94_CG Power and Industrial Solutions Ltd._2022_2023.pdf,Renamed,94_CG Power and Industrial Solutions Ltd._2023_2024.pdf,Renamed,94_CG Power and Industrial Solutions Ltd._2024_2025.pdf
 CRISIL,CRISIL,95,Not Found,,Not Found,,Not Found,
-Campus Activewear,CAMPUS,96,Not Found,,Not Found,,Not Found,
-Can Fin Homes,CANFINHOME,97,Not Found,,Not Found,,Not Found,
+Campus Activewear,CAMPUS,96,Renamed,96_Campus Activewear Ltd._2022_2023.pdf,Not Found,,Renamed,96_Campus Activewear Ltd._2024_2025.pdf
+Can Fin Homes,CANFINHOME,97,Renamed,97_Can Fin Homes Ltd._2022_2023.pdf,Renamed,97_Can Fin Homes Ltd._2023_2024.pdf,Not Found,
 Canara Bank,CANBK,98,Renamed,98_Canara Bank_2022_2023.pdf,Renamed,98_Canara Bank_2023_2024.pdf,Renamed,98_Canara Bank_2024_2025.pdf
 Caplin Point Laboratories,CAPLIPOINT,99,Not Found,,Not Found,,Not Found,
 Capri Global Capital,CGCL,100,Not Found,,Not Found,,Not Found,
 Carborundum Universal,CARBORUNIV,101,Not Found,,Not Found,,Not Found,
 Castrol India,CASTROLIND,102,Renamed,102_Castrol India Ltd._2022_2023.pdf,Renamed,102_Castrol India Ltd._2023_2024.pdf,Renamed,102_Castrol India Ltd._2024_2025.pdf
-Ceat,CEATLTD,103,Not Found,,Not Found,,Not Found,
+Ceat,CEATLTD,103,Renamed,103_Ceat Ltd._2022_2023.pdf,Not Found,,Renamed,103_Ceat Ltd._2024_2025.pdf
 Central Bank of India,CENTRALBK,104,Not Found,,Not Found,,Not Found,
 Central Depository Services (India),CDSL,105,Not Found,,Not Found,,Not Found,
 Century Plyboards (India),CENTURYPLY,106,Not Found,,Not Found,,Not Found,
-Cera Sanitaryware Ltd,CERA,107,Not Found,,Not Found,,Not Found,
-Chalet Hotels,CHALET,108,Not Found,,Not Found,,Not Found,
+Cera Sanitaryware Ltd,CERA,107,Renamed,107_Cera Sanitaryware Ltd_2022_2023.pdf,Renamed,107_Cera Sanitaryware Ltd_2023_2024.pdf,Renamed,107_Cera Sanitaryware Ltd_2024_2025.pdf
+Chalet Hotels,CHALET,108,Renamed,108_Chalet Hotels Ltd._2022_2023.pdf,Renamed,108_Chalet Hotels Ltd._2023_2024.pdf,Not Found,
 Chambal Fertilizers & Chemicals,CHAMBLFERT,109,Not Found,,Not Found,,Not Found,
 Chennai Petroleum Corporation,CHENNPETRO,110,Not Found,,Not Found,,Not Found,
 Cholamandalam Financial Holdings,CHOLAHLDNG,111,Not Found,,Not Found,,Not Found,
 Cholamandalam Investment and Finance Company,CHOLAFIN,112,Not Found,,Not Found,,Not Found,
-Cipla,CIPLA,113,Not Found,,Not Found,,Not Found,
+Cipla,CIPLA,113,Renamed,113_Cipla Ltd._2022_2023.pdf,Renamed,113_Cipla Ltd._2023_2024.pdf,Renamed,113_Cipla Ltd._2024_2025.pdf
 City Union Bank,CUB,114,Not Found,,Not Found,,Not Found,
-Clean Science and Technology,CLEAN,115,Renamed,115_Clean Science and Technology Ltd._2022_2023.pdf,Renamed,115_Clean Science and Technology Ltd._2023_2024.pdf,Not Found,
+Clean Science and Technology,CLEAN,115,Not Found,,Renamed,115_Clean Science and Technology Ltd._2023_2024.pdf,Renamed,115_Clean Science and Technology Ltd._2024_2025.pdf
 Coal India,COALINDIA,116,Not Found,,Not Found,,Not Found,
 Cochin Shipyard,COCHINSHIP,117,Not Found,,Not Found,,Not Found,
-Coforge,COFORGE,118,Not Found,,Not Found,,Not Found,
+Coforge,COFORGE,118,Renamed,118_Coforge Ltd._2022_2023.pdf,Renamed,118_Coforge Ltd._2023_2024.pdf,Not Found,
 Cohance Lifesciences,COHANCE,119,Not Found,,Not Found,,Not Found,
-Colgate Palmolive (India),COLPAL,120,Not Found,,Not Found,,Not Found,
-Computer Age Management Services,CAMS,121,Not Found,,Not Found,,Not Found,
-Concord Biotech,CONCORDBIO,122,Not Found,,Not Found,,Not Found,
+Colgate Palmolive (India),COLPAL,120,Renamed,120_Colgate Palmolive (India) Ltd._2022_2023.pdf,Renamed,120_Colgate Palmolive (India) Ltd._2023_2024.pdf,Not Found,
+Computer Age Management Services,CAMS,121,Not Found,,Renamed,121_Computer Age Management Services Ltd._2023_2024.pdf,Renamed,121_Computer Age Management Services Ltd._2024_2025.pdf
+Concord Biotech,CONCORDBIO,122,Not Found,,Renamed,122_Concord Biotech Ltd._2023_2024.pdf,Renamed,122_Concord Biotech Ltd._2024_2025.pdf
 Container Corporation of India,CONCOR,123,Not Found,,Not Found,,Not Found,
 Coromandel International,COROMANDEL,124,Not Found,,Not Found,,Not Found,
 Craftsman Automation,CRAFTSMAN,125,Not Found,,Not Found,,Not Found,
 CreditAccess Grameen,CREDITACC,126,Not Found,,Not Found,,Not Found,
 Crompton Greaves Consumer Electricals,CROMPTON,127,Not Found,,Not Found,,Not Found,
 Cummins India,CUMMINSIND,128,Not Found,,Not Found,,Not Found,
-Cyient,CYIENT,129,Not Found,,Not Found,,Not Found,
+Cyient,CYIENT,129,Renamed,129_Cyient Ltd._2022_2023.pdf,Renamed,129_Cyient Ltd._2023_2024.pdf,Renamed,129_Cyient Ltd._2024_2025.pdf
 DCM Shriram,DCMSHRIRAM,130,Not Found,,Not Found,,Not Found,
-DLF,DLF,131,Not Found,,Not Found,,Not Found,
+DLF,DLF,131,Renamed,131_DLF Ltd._2022_2023.pdf,Not Found,,Not Found,
 DOMS Industries,DOMS,132,Not Found,,Renamed,132_DOMS Industries Ltd._2023_2024.pdf,Renamed,132_DOMS Industries Ltd._2024_2025.pdf
 Dabur India,DABUR,133,Renamed,133_Dabur India Ltd._2022_2023.pdf,Renamed,133_Dabur India Ltd._2023_2024.pdf,Renamed,133_Dabur India Ltd._2024_2025.pdf
 Dalmia Bharat,DALBHARAT,134,Not Found,,Not Found,,Not Found,
 Data Patterns (India),DATAPATTNS,135,Not Found,,Not Found,,Not Found,
 Deepak Fertilisers & Petrochemicals Corp.,DEEPAKFERT,136,Not Found,,Not Found,,Not Found,
 Deepak Nitrite,DEEPAKNTR,137,Not Found,,Not Found,,Not Found,
-Delhivery,DELHIVERY,138,Not Found,,Not Found,,Not Found,
+Delhivery,DELHIVERY,138,Not Found,,Renamed,138_Delhivery Ltd._2023_2024.pdf,Renamed,138_Delhivery Ltd._2024_2025.pdf
 Devyani International,DEVYANI,139,Not Found,,Not Found,,Not Found,
 Divi's Laboratories,DIVISLAB,140,Not Found,,Not Found,,Not Found,
 Dixon Technologies (India),DIXON,141,Not Found,,Not Found,,Not Found,
@@ -145,10 +145,10 @@ Dr. Reddy's Laboratories,DRREDDY,143,Not Found,,Not Found,,Not Found,
 Dummy Valor Estate,DUMMYDBRLT,144,Not Found,,Not Found,,Not Found,
 E.I.D. Parry (India),EIDPARRY,145,Not Found,,Not Found,,Not Found,
 EIH,EIHOTEL,146,Not Found,,Not Found,,Not Found,
-Eicher Motors,EICHERMOT,147,Not Found,,Not Found,,Not Found,
+Eicher Motors,EICHERMOT,147,Renamed,147_Eicher Motors Ltd._2022_2023.pdf,Renamed,147_Eicher Motors Ltd._2023_2024.pdf,Renamed,147_Eicher Motors Ltd._2024_2025.pdf
 Elecon Engineering Co.,ELECON,148,Not Found,,Not Found,,Not Found,
-Elgi Equipments,ELGIEQUIP,149,Not Found,,Not Found,,Not Found,
-Emami,EMAMILTD,150,Not Found,,Not Found,,Not Found,
+Elgi Equipments,ELGIEQUIP,149,Renamed,149_Elgi Equipments Ltd._2022_2023.pdf,Not Found,,Not Found,
+Emami,EMAMILTD,150,Renamed,150_Emami Ltd._2022_2023.pdf,Renamed,150_Emami Ltd._2023_2024.pdf,Renamed,150_Emami Ltd._2024_2025.pdf
 Emcure Pharmaceuticals,EMCURE,151,Not Found,,Not Found,,Not Found,
 Endurance Technologies,ENDURANCE,152,Not Found,,Not Found,,Not Found,
 Engineers India,ENGINERSIN,153,Not Found,,Not Found,,Not Found,
@@ -157,20 +157,20 @@ Escorts Kubota,ESCORTS,155,Not Found,,Not Found,,Not Found,
 Eternal,ETERNAL,156,Not Found,,Not Found,,Not Found,
 Exide Industries,EXIDEIND,157,Not Found,,Not Found,,Not Found,
 FSN E-Commerce Ventures,NYKAA,158,Not Found,,Not Found,,Not Found,
-Federal Bank,FEDERALBNK,159,Not Found,,Not Found,,Not Found,
+Federal Bank,FEDERALBNK,159,Renamed,159_Federal Bank Ltd._2022_2023.pdf,Renamed,159_Federal Bank Ltd._2023_2024.pdf,Renamed,159_Federal Bank Ltd._2024_2025.pdf
 Fertilisers and Chemicals Travancore,FACT,160,Not Found,,Not Found,,Not Found,
 Finolex Cables,FINCABLES,161,Not Found,,Not Found,,Not Found,
 Finolex Industries,FINPIPE,162,Not Found,,Not Found,,Not Found,
 Firstsource Solutions,FSL,163,Not Found,,Not Found,,Not Found,
 Five-Star Business Finance,FIVESTAR,164,Not Found,,Not Found,,Not Found,
-Fortis Healthcare,FORTIS,165,Not Found,,Not Found,,Not Found,
+Fortis Healthcare,FORTIS,165,Renamed,165_Fortis Healthcare Ltd._2022_2023.pdf,Renamed,165_Fortis Healthcare Ltd._2023_2024.pdf,Renamed,165_Fortis Healthcare Ltd._2024_2025.pdf
 GAIL (India),GAIL,166,Renamed,166_GAIL (India) Ltd._2022_2023.pdf,Renamed,166_GAIL (India) Ltd._2023_2024.pdf,Renamed,166_GAIL (India) Ltd._2024_2025.pdf
 GE Vernova T&D India,GVT&D,167,Not Found,,Not Found,,Not Found,
 GMR Airports,GMRAIRPORT,168,Renamed,168_GMR Airports Ltd._2022_2023.pdf,Renamed,168_GMR Airports Ltd._2023_2024.pdf,Renamed,168_GMR Airports Ltd._2024_2025.pdf
-Garden Reach Shipbuilders & Engineers,GRSE,169,Not Found,,Not Found,,Not Found,
+Garden Reach Shipbuilders & Engineers,GRSE,169,Not Found,,Renamed,169_Garden Reach Shipbuilders & Engineers Ltd._2023_2024.pdf,Renamed,169_Garden Reach Shipbuilders & Engineers Ltd._2024_2025.pdf
 General Insurance Corporation of India,GICRE,170,Not Found,,Not Found,,Not Found,
 Gillette India,GILLETTE,171,Renamed,171_Gillette India Ltd._2022_2023.pdf,Renamed,171_Gillette India Ltd._2023_2024.pdf,Renamed,171_Gillette India Ltd._2024_2025.pdf
-Gland Pharma,GLAND,172,Not Found,,Not Found,,Not Found,
+Gland Pharma,GLAND,172,Renamed,172_Gland Pharma Ltd._2022_2023.pdf,Renamed,172_Gland Pharma Ltd._2023_2024.pdf,Not Found,
 Glaxosmithkline Pharmaceuticals,GLAXO,173,Not Found,,Not Found,,Not Found,
 Glenmark Pharmaceuticals,GLENMARK,174,Not Found,,Not Found,,Not Found,
 Global Health,MEDANTA,175,Not Found,,Not Found,,Not Found,
@@ -181,10 +181,10 @@ Godrej Agrovet,GODREJAGRO,179,Not Found,,Not Found,,Not Found,
 Godrej Consumer Products,GODREJCP,180,Not Found,,Not Found,,Not Found,
 Godrej Industries,GODREJIND,181,Not Found,,Not Found,,Not Found,
 Godrej Properties,GODREJPROP,182,Not Found,,Not Found,,Not Found,
-Granules India,GRANULES,183,Not Found,,Not Found,,Not Found,
+Granules India,GRANULES,183,Renamed,183_Granules India Ltd._2022_2023.pdf,Renamed,183_Granules India Ltd._2023_2024.pdf,Not Found,
 Graphite India,GRAPHITE,184,Not Found,,Not Found,,Not Found,
 Grasim Industries,GRASIM,185,Not Found,,Not Found,,Not Found,
-Gravita India,GRAVITA,186,Not Found,,Not Found,,Not Found,
+Gravita India,GRAVITA,186,Renamed,186_Gravita India Ltd._2022_2023.pdf,Renamed,186_Gravita India Ltd._2023_2024.pdf,Renamed,186_Gravita India Ltd._2024_2025.pdf
 Great Eastern Shipping Co.,GESHIP,187,Not Found,,Not Found,,Not Found,
 Gujarat Fluorochemicals,FLUOROCHEM,188,Not Found,,Not Found,,Not Found,
 Gujarat Gas,GUJGASLTD,189,Not Found,,Not Found,,Not Found,
@@ -193,15 +193,15 @@ Gujarat Narmada Valley Fertilizers and Chemicals,GNFC,191,Not Found,,Not Found,,
 Gujarat Pipavav Port,GPPL,192,Not Found,,Not Found,,Not Found,
 Gujarat State Petronet,GSPL,193,Not Found,,Not Found,,Not Found,
 H.E.G.,HEG,194,Not Found,,Not Found,,Not Found,
-HBL Engineering,HBLENGINE,195,Not Found,,Not Found,,Not Found,
-HCL Technologies,HCLTECH,196,Not Found,,Not Found,,Not Found,
-HDFC Asset Management Company,HDFCAMC,197,Not Found,,Not Found,,Not Found,
+HBL Engineering,HBLENGINE,195,Renamed,195_HBL Engineering Ltd._2022_2023.pdf,Renamed,195_HBL Engineering Ltd._2023_2024.pdf,Renamed,195_HBL Engineering Ltd._2024_2025.pdf
+HCL Technologies,HCLTECH,196,Renamed,196_HCL Technologies Ltd._2022_2023.pdf,Renamed,196_HCL Technologies Ltd._2023_2024.pdf,Renamed,196_HCL Technologies Ltd._2024_2025.pdf
+HDFC Asset Management Company,HDFCAMC,197,Renamed,197_HDFC Asset Management Company Ltd._2022_2023.pdf,Renamed,197_HDFC Asset Management Company Ltd._2023_2024.pdf,Renamed,197_HDFC Asset Management Company Ltd._2024_2025.pdf
 HDFC Bank,HDFCBANK,198,Not Found,,Not Found,,Not Found,
-HDFC Life Insurance Company,HDFCLIFE,199,Not Found,,Not Found,,Not Found,
-HFCL,HFCL,200,Not Found,,Not Found,,Not Found,
+HDFC Life Insurance Company,HDFCLIFE,199,Renamed,199_HDFC Life Insurance Company Ltd._2022_2023.pdf,Not Found,,Renamed,199_HDFC Life Insurance Company Ltd._2024_2025.pdf
+HFCL,HFCL,200,Renamed,200_HFCL Ltd._2022_2023.pdf,Renamed,200_HFCL Ltd._2023_2024.pdf,Renamed,200_HFCL Ltd._2024_2025.pdf
 Happiest Minds Technologies,HAPPSTMNDS,201,Not Found,,Not Found,,Not Found,
-Havells India,HAVELLS,202,Not Found,,Not Found,,Not Found,
-Hero MotoCorp,HEROMOTOCO,203,Not Found,,Not Found,,Not Found,
+Havells India,HAVELLS,202,Renamed,202_Havells India Ltd._2022_2023.pdf,Not Found,,Renamed,202_Havells India Ltd._2024_2025.pdf
+Hero MotoCorp,HEROMOTOCO,203,Renamed,203_Hero MotoCorp Ltd._2022_2023.pdf,Renamed,203_Hero MotoCorp Ltd._2023_2024.pdf,Renamed,203_Hero MotoCorp Ltd._2024_2025.pdf
 Himadri Speciality Chemical,HSCL,204,Not Found,,Not Found,,Not Found,
 Hindalco Industries,HINDALCO,205,Not Found,,Not Found,,Not Found,
 Hindustan Aeronautics,HAL,206,Not Found,,Not Found,,Not Found,
@@ -209,77 +209,77 @@ Hindustan Copper,HINDCOPPER,207,Not Found,,Not Found,,Not Found,
 Hindustan Petroleum Corporation,HINDPETRO,208,Not Found,,Not Found,,Not Found,
 Hindustan Unilever,HINDUNILVR,209,Not Found,,Not Found,,Not Found,
 Hindustan Zinc,HINDZINC,210,Not Found,,Not Found,,Not Found,
-Hitachi Energy India,POWERINDIA,211,Not Found,,Not Found,,Not Found,
+Hitachi Energy India,POWERINDIA,211,Not Found,,Renamed,211_Hitachi Energy India Ltd._2023_2024.pdf,Renamed,211_Hitachi Energy India Ltd._2024_2025.pdf
 Home First Finance Company India,HOMEFIRST,212,Not Found,,Not Found,,Not Found,
 Honasa Consumer,HONASA,213,Not Found,,Not Found,,Not Found,
 Honeywell Automation India,HONAUT,214,Not Found,,Not Found,,Not Found,
 Housing & Urban Development Corporation,HUDCO,215,Not Found,,Not Found,,Not Found,
-Hyundai Motor India,HYUNDAI,216,Not Found,,Not Found,,Not Found,
-ICICI Bank,ICICIBANK,217,Not Found,,Not Found,,Not Found,
+Hyundai Motor India,HYUNDAI,216,Not Found,,Not Found,,Renamed,216_Hyundai Motor India Ltd._2024_2025.pdf
+ICICI Bank,ICICIBANK,217,Renamed,217_ICICI Bank Ltd._2022_2023.pdf,Not Found,,Renamed,217_ICICI Bank Ltd._2024_2025.pdf
 ICICI Lombard General Insurance Company,ICICIGI,218,Not Found,,Not Found,,Not Found,
 ICICI Prudential Life Insurance Company,ICICIPRULI,219,Not Found,,Not Found,,Not Found,
-IDBI Bank,IDBI,220,Not Found,,Not Found,,Not Found,
-IDFC First Bank,IDFCFIRSTB,221,Not Found,,Not Found,,Not Found,
+IDBI Bank,IDBI,220,Not Found,,Not Found,,Renamed,220_IDBI Bank Ltd._2024_2025.pdf
+IDFC First Bank,IDFCFIRSTB,221,Renamed,221_IDFC First Bank Ltd._2022_2023.pdf,Renamed,221_IDFC First Bank Ltd._2023_2024.pdf,Renamed,221_IDFC First Bank Ltd._2024_2025.pdf
 IFCI,IFCI,222,Not Found,,Not Found,,Not Found,
 IIFL Finance,IIFL,223,Not Found,,Not Found,,Not Found,
-INOX India,INOXINDIA,224,Not Found,,Not Found,,Not Found,
+INOX India,INOXINDIA,224,Not Found,,Renamed,224_INOX India Ltd._2023_2024.pdf,Not Found,
 IRB Infrastructure Developers,IRB,225,Not Found,,Not Found,,Not Found,
 IRCON International,IRCON,226,Not Found,,Not Found,,Not Found,
 ITC,ITC,227,Not Found,,Not Found,,Not Found,
-ITI,ITI,228,Not Found,,Not Found,,Not Found,
-Indegene,INDGN,229,Not Found,,Not Found,,Not Found,
+ITI,ITI,228,Renamed,228_ITI Ltd._2022_2023.pdf,Renamed,228_ITI Ltd._2023_2024.pdf,Renamed,228_ITI Ltd._2024_2025.pdf
+Indegene,INDGN,229,Not Found,,Not Found,,Renamed,229_Indegene Ltd._2024_2025.pdf
 India Cements,INDIACEM,230,Not Found,,Not Found,,Not Found,
 Indiamart Intermesh,INDIAMART,231,Not Found,,Not Found,,Not Found,
 Indian Bank,INDIANB,232,Not Found,,Not Found,,Not Found,
 Indian Energy Exchange,IEX,233,Not Found,,Not Found,,Not Found,
 Indian Hotels Co.,INDHOTEL,234,Not Found,,Not Found,,Not Found,
-Indian Oil Corporation,IOC,235,Not Found,,Not Found,,Not Found,
-Indian Overseas Bank,IOB,236,Not Found,,Not Found,,Not Found,
+Indian Oil Corporation,IOC,235,Renamed,235_Indian Oil Corporation Ltd._2022_2023.pdf,Renamed,235_Indian Oil Corporation Ltd._2023_2024.pdf,Renamed,235_Indian Oil Corporation Ltd._2024_2025.pdf
+Indian Overseas Bank,IOB,236,Renamed,236_Indian Overseas Bank_2022_2023.pdf,Not Found,,Renamed,236_Indian Overseas Bank_2024_2025.pdf
 Indian Railway Catering And Tourism Corporation,IRCTC,237,Not Found,,Not Found,,Not Found,
 Indian Railway Finance Corporation,IRFC,238,Not Found,,Not Found,,Not Found,
 Indian Renewable Energy Development Agency,IREDA,239,Not Found,,Not Found,,Not Found,
 Indraprastha Gas,IGL,240,Not Found,,Not Found,,Not Found,
-Indus Towers,INDUSTOWER,241,Not Found,,Not Found,,Not Found,
-IndusInd Bank,INDUSINDBK,242,Not Found,,Not Found,,Not Found,
-Info Edge (India),NAUKRI,243,Not Found,,Not Found,,Not Found,
+Indus Towers,INDUSTOWER,241,Not Found,,Renamed,241_Indus Towers Ltd._2023_2024.pdf,Not Found,
+IndusInd Bank,INDUSINDBK,242,Renamed,242_IndusInd Bank Ltd._2022_2023.pdf,Renamed,242_IndusInd Bank Ltd._2023_2024.pdf,Renamed,242_IndusInd Bank Ltd._2024_2025.pdf
+Info Edge (India),NAUKRI,243,Not Found,,Renamed,243_Info Edge (India) Ltd._2023_2024.pdf,Renamed,243_Info Edge (India) Ltd._2024_2025.pdf
 Infosys,INFY,244,Not Found,,Not Found,,Not Found,
-Inox Wind,INOXWIND,245,Not Found,,Not Found,,Not Found,
-Intellect Design Arena,INTELLECT,246,Not Found,,Not Found,,Not Found,
+Inox Wind,INOXWIND,245,Renamed,245_Inox Wind Ltd._2022_2023.pdf,Renamed,245_Inox Wind Ltd._2023_2024.pdf,Not Found,
+Intellect Design Arena,INTELLECT,246,Not Found,,Renamed,246_Intellect Design Arena Ltd._2023_2024.pdf,Renamed,246_Intellect Design Arena Ltd._2024_2025.pdf
 InterGlobe Aviation,INDIGO,247,Not Found,,Renamed,247_InterGlobe Aviation Ltd._2023_2024.pdf,Renamed,247_InterGlobe Aviation Ltd._2024_2025.pdf
 International Gemmological Institute (India),IGIL,248,Not Found,,Not Found,,Not Found,
 Inventurus Knowledge Solutions,IKS,249,Not Found,,Not Found,,Not Found,
 Ipca Laboratories,IPCALAB,250,Not Found,,Not Found,,Not Found,
 J.B. Chemicals & Pharmaceuticals,JBCHEPHARM,251,Not Found,,Not Found,,Not Found,
 J.K. Cement,JKCEMENT,252,Not Found,,Not Found,,Not Found,
-JBM Auto,JBMA,253,Not Found,,Not Found,,Not Found,
-JK Tyre & Industries,JKTYRE,254,Not Found,,Not Found,,Not Found,
+JBM Auto,JBMA,253,Renamed,253_JBM Auto Ltd._2022_2023.pdf,Not Found,,Renamed,253_JBM Auto Ltd._2024_2025.pdf
+JK Tyre & Industries,JKTYRE,254,Not Found,,Not Found,,Renamed,254_JK Tyre & Industries Ltd._2024_2025.pdf
 JM Financial,JMFINANCIL,255,Not Found,,Not Found,,Not Found,
 JSW Energy,JSWENERGY,256,Not Found,,Not Found,,Not Found,
-JSW Holdings,JSWHL,257,Not Found,,Not Found,,Not Found,
+JSW Holdings,JSWHL,257,Renamed,257_JSW Holdings Ltd._2022_2023.pdf,Renamed,257_JSW Holdings Ltd._2023_2024.pdf,Renamed,257_JSW Holdings Ltd._2024_2025.pdf
 JSW Infrastructure,JSWINFRA,258,Not Found,,Not Found,,Not Found,
-JSW Steel,JSWSTEEL,259,Not Found,,Not Found,,Not Found,
+JSW Steel,JSWSTEEL,259,Renamed,259_JSW Steel Ltd._2022_2023.pdf,Not Found,,Renamed,259_JSW Steel Ltd._2024_2025.pdf
 Jaiprakash Power Ventures,JPPOWER,260,Not Found,,Not Found,,Not Found,
-Jammu & Kashmir Bank,J&KBANK,261,Not Found,,Not Found,,Not Found,
-Jindal Saw,JINDALSAW,262,Not Found,,Not Found,,Not Found,
+Jammu & Kashmir Bank,J&KBANK,261,Renamed,261_Jammu & Kashmir Bank Ltd._2022_2023.pdf,Renamed,261_Jammu & Kashmir Bank Ltd._2023_2024.pdf,Renamed,261_Jammu & Kashmir Bank Ltd._2024_2025.pdf
+Jindal Saw,JINDALSAW,262,Not Found,,Renamed,262_Jindal Saw Ltd._2023_2024.pdf,Renamed,262_Jindal Saw Ltd._2024_2025.pdf
 Jindal Stainless,JSL,263,Not Found,,Not Found,,Not Found,
 Jindal Steel,JINDALSTEL,264,Not Found,,Not Found,,Not Found,
-Jio Financial Services,JIOFIN,265,Not Found,,Not Found,,Not Found,
-Jubilant Foodworks,JUBLFOOD,266,Not Found,,Not Found,,Not Found,
+Jio Financial Services,JIOFIN,265,Not Found,,Renamed,265_Jio Financial Services Ltd._2023_2024.pdf,Renamed,265_Jio Financial Services Ltd._2024_2025.pdf
+Jubilant Foodworks,JUBLFOOD,266,Renamed,266_Jubilant Foodworks Ltd._2022_2023.pdf,Renamed,266_Jubilant Foodworks Ltd._2023_2024.pdf,Not Found,
 Jubilant Ingrevia,JUBLINGREA,267,Not Found,,Not Found,,Not Found,
 Jubilant Pharmova,JUBLPHARMA,268,Not Found,,Not Found,,Not Found,
-Jupiter Wagons,JWL,269,Not Found,,Not Found,,Not Found,
-Justdial,JUSTDIAL,270,Not Found,,Not Found,,Not Found,
+Jupiter Wagons,JWL,269,Renamed,269_Jupiter Wagons Ltd._2022_2023.pdf,Renamed,269_Jupiter Wagons Ltd._2023_2024.pdf,Renamed,269_Jupiter Wagons Ltd._2024_2025.pdf
+Justdial,JUSTDIAL,270,Renamed,270_Justdial Ltd._2022_2023.pdf,Renamed,270_Justdial Ltd._2023_2024.pdf,Renamed,270_Justdial Ltd._2024_2025.pdf
 Jyothy Labs,JYOTHYLAB,271,Not Found,,Not Found,,Not Found,
 Jyoti CNC Automation,JYOTICNC,272,Not Found,,Not Found,,Not Found,
 K.P.R. Mill,KPRMILL,273,Not Found,,Not Found,,Not Found,
 KEI Industries,KEI,274,Not Found,,Not Found,,Not Found,
 KNR Constructions,KNRCON,275,Not Found,,Not Found,,Not Found,
 KPIT Technologies,KPITTECH,276,Not Found,,Not Found,,Not Found,
-Kajaria Ceramics,KAJARIACER,277,Not Found,,Not Found,,Not Found,
+Kajaria Ceramics,KAJARIACER,277,Not Found,,Renamed,277_Kajaria Ceramics Ltd._2023_2024.pdf,Renamed,277_Kajaria Ceramics Ltd._2024_2025.pdf
 Kalpataru Projects International,KPIL,278,Not Found,,Not Found,,Not Found,
 Kalyan Jewellers India,KALYANKJIL,279,Not Found,,Not Found,,Not Found,
 Kansai Nerolac Paints,KANSAINER,280,Not Found,,Not Found,,Not Found,
-Karur Vysya Bank,KARURVYSYA,281,Not Found,,Not Found,,Not Found,
+Karur Vysya Bank,KARURVYSYA,281,Renamed,281_Karur Vysya Bank Ltd._2022_2023.pdf,Renamed,281_Karur Vysya Bank Ltd._2023_2024.pdf,Renamed,281_Karur Vysya Bank Ltd._2024_2025.pdf
 Kaynes Technology India,KAYNES,282,Not Found,,Not Found,,Not Found,
 Kec International,KEC,283,Not Found,,Not Found,,Not Found,
 Kfin Technologies,KFINTECH,284,Not Found,,Not Found,,Not Found,
@@ -287,216 +287,216 @@ Kirloskar Brothers,KIRLOSBROS,285,Not Found,,Not Found,,Not Found,
 Kirloskar Oil Eng,KIRLOSENG,286,Not Found,,Not Found,,Not Found,
 Kotak Mahindra Bank,KOTAKBANK,287,Not Found,,Not Found,,Not Found,
 Krishna Institute of Medical Sciences,KIMS,288,Not Found,,Not Found,,Not Found,
-L&T Finance,LTF,289,Not Found,,Not Found,,Not Found,
+L&T Finance,LTF,289,Not Found,,Renamed,289_L&T Finance Ltd._2023_2024.pdf,Not Found,
 L&T Technology Services,LTTS,290,Not Found,,Not Found,,Not Found,
-LIC Housing Finance,LICHSGFIN,291,Not Found,,Not Found,,Not Found,
+LIC Housing Finance,LICHSGFIN,291,Renamed,291_LIC Housing Finance Ltd._2022_2023.pdf,Renamed,291_LIC Housing Finance Ltd._2023_2024.pdf,Renamed,291_LIC Housing Finance Ltd._2024_2025.pdf
 LT Foods,LTFOODS,292,Not Found,,Not Found,,Not Found,
-LTIMindtree,LTIM,293,Not Found,,Not Found,,Not Found,
+LTIMindtree,LTIM,293,Renamed,293_LTIMindtree Ltd._2022_2023.pdf,Not Found,,Renamed,293_LTIMindtree Ltd._2024_2025.pdf
 Larsen & Toubro,LT,294,Not Found,,Not Found,,Not Found,
 Latent View Analytics,LATENTVIEW,295,Not Found,,Not Found,,Not Found,
 Laurus Labs,LAURUSLABS,296,Not Found,,Not Found,,Not Found,
-Lemon Tree Hotels,LEMONTREE,297,Not Found,,Not Found,,Not Found,
+Lemon Tree Hotels,LEMONTREE,297,Renamed,297_Lemon Tree Hotels Ltd._2022_2023.pdf,Renamed,297_Lemon Tree Hotels Ltd._2023_2024.pdf,Renamed,297_Lemon Tree Hotels Ltd._2024_2025.pdf
 Life Insurance Corporation of India,LICI,298,Not Found,,Not Found,,Not Found,
-Linde India,LINDEINDIA,299,Not Found,,Not Found,,Not Found,
+Linde India,LINDEINDIA,299,Renamed,299_Linde India Ltd._2022_2023.pdf,Renamed,299_Linde India Ltd._2023_2024.pdf,Renamed,299_Linde India Ltd._2024_2025.pdf
 Lloyds Metals And Energy,LLOYDSME,300,Not Found,,Not Found,,Not Found,
 Lodha Developers,LODHA,301,Not Found,,Not Found,,Not Found,
-Lupin,LUPIN,302,Not Found,,Not Found,,Not Found,
-MMTC,MMTC,303,Not Found,,Not Found,,Not Found,
-MRF,MRF,304,Not Found,,Not Found,,Not Found,
-Mahanagar Gas,MGL,305,Not Found,,Not Found,,Not Found,
+Lupin,LUPIN,302,Renamed,302_Lupin Ltd._2022_2023.pdf,Not Found,,Renamed,302_Lupin Ltd._2024_2025.pdf
+MMTC,MMTC,303,Renamed,303_MMTC Ltd._2022_2023.pdf,Renamed,303_MMTC Ltd._2023_2024.pdf,Renamed,303_MMTC Ltd._2024_2025.pdf
+MRF,MRF,304,Renamed,304_MRF Ltd._2022_2023.pdf,Renamed,304_MRF Ltd._2023_2024.pdf,Renamed,304_MRF Ltd._2024_2025.pdf
+Mahanagar Gas,MGL,305,Renamed,305_Mahanagar Gas Ltd._2022_2023.pdf,Not Found,,Not Found,
 Maharashtra Seamless,MAHSEAMLES,306,Not Found,,Not Found,,Not Found,
 Mahindra & Mahindra Financial Services,M&MFIN,307,Not Found,,Not Found,,Not Found,
 Mahindra & Mahindra,M&M,308,Not Found,,Not Found,,Not Found,
 Manappuram Finance,MANAPPURAM,309,Not Found,,Not Found,,Not Found,
 Mangalore Refinery & Petrochemicals,MRPL,310,Not Found,,Not Found,,Not Found,
-Mankind Pharma,MANKIND,311,Not Found,,Not Found,,Not Found,
-Marico,MARICO,312,Not Found,,Not Found,,Not Found,
-Maruti Suzuki India,MARUTI,313,Not Found,,Not Found,,Not Found,
-Mastek,MASTEK,314,Not Found,,Not Found,,Not Found,
-Max Financial Services,MFSL,315,Not Found,,Not Found,,Not Found,
-Max Healthcare Institute,MAXHEALTH,316,Not Found,,Not Found,,Not Found,
+Mankind Pharma,MANKIND,311,Not Found,,Renamed,311_Mankind Pharma Ltd._2023_2024.pdf,Renamed,311_Mankind Pharma Ltd._2024_2025.pdf
+Marico,MARICO,312,Renamed,312_Marico Ltd._2022_2023.pdf,Not Found,,Renamed,312_Marico Ltd._2024_2025.pdf
+Maruti Suzuki India,MARUTI,313,Not Found,,Renamed,313_Maruti Suzuki India Ltd._2023_2024.pdf,Renamed,313_Maruti Suzuki India Ltd._2024_2025.pdf
+Mastek,MASTEK,314,Renamed,314_Mastek Ltd._2022_2023.pdf,Renamed,314_Mastek Ltd._2023_2024.pdf,Renamed,314_Mastek Ltd._2024_2025.pdf
+Max Financial Services,MFSL,315,Renamed,315_Max Financial Services Ltd._2022_2023.pdf,Renamed,315_Max Financial Services Ltd._2023_2024.pdf,Renamed,315_Max Financial Services Ltd._2024_2025.pdf
+Max Healthcare Institute,MAXHEALTH,316,Renamed,316_Max Healthcare Institute Ltd._2022_2023.pdf,Renamed,316_Max Healthcare Institute Ltd._2023_2024.pdf,Renamed,316_Max Healthcare Institute Ltd._2024_2025.pdf
 Mazagoan Dock Shipbuilders,MAZDOCK,317,Not Found,,Not Found,,Not Found,
-Metropolis Healthcare,METROPOLIS,318,Not Found,,Not Found,,Not Found,
-Minda Corporation,MINDACORP,319,Not Found,,Not Found,,Not Found,
-Motherson Sumi Wiring India,MSUMI,320,Not Found,,Not Found,,Not Found,
-Motilal Oswal Financial Services,MOTILALOFS,321,Not Found,,Not Found,,Not Found,
-MphasiS,MPHASIS,322,Not Found,,Not Found,,Not Found,
+Metropolis Healthcare,METROPOLIS,318,Renamed,318_Metropolis Healthcare Ltd._2022_2023.pdf,Not Found,,Renamed,318_Metropolis Healthcare Ltd._2024_2025.pdf
+Minda Corporation,MINDACORP,319,Renamed,319_Minda Corporation Ltd._2022_2023.pdf,Renamed,319_Minda Corporation Ltd._2023_2024.pdf,Renamed,319_Minda Corporation Ltd._2024_2025.pdf
+Motherson Sumi Wiring India,MSUMI,320,Renamed,320_Motherson Sumi Wiring India Ltd._2022_2023.pdf,Renamed,320_Motherson Sumi Wiring India Ltd._2023_2024.pdf,Not Found,
+Motilal Oswal Financial Services,MOTILALOFS,321,Not Found,,Not Found,,Renamed,321_Motilal Oswal Financial Services Ltd._2024_2025.pdf
+MphasiS,MPHASIS,322,Renamed,322_MphasiS Ltd._2022_2023.pdf,Renamed,322_MphasiS Ltd._2023_2024.pdf,Renamed,322_MphasiS Ltd._2024_2025.pdf
 Multi Commodity Exchange of India,MCX,323,Not Found,,Not Found,,Not Found,
-Muthoot Finance,MUTHOOTFIN,324,Not Found,,Not Found,,Not Found,
-NATCO Pharma,NATCOPHARM,325,Not Found,,Not Found,,Not Found,
+Muthoot Finance,MUTHOOTFIN,324,Not Found,,Not Found,,Renamed,324_Muthoot Finance Ltd._2024_2025.pdf
+NATCO Pharma,NATCOPHARM,325,Not Found,,Renamed,325_NATCO Pharma Ltd._2023_2024.pdf,Renamed,325_NATCO Pharma Ltd._2024_2025.pdf
 NBCC (India),NBCC,326,Not Found,,Not Found,,Not Found,
-NCC,NCC,327,Not Found,,Not Found,,Not Found,
-NHPC,NHPC,328,Not Found,,Not Found,,Not Found,
+NCC,NCC,327,Renamed,327_NCC Ltd._2022_2023.pdf,Renamed,327_NCC Ltd._2023_2024.pdf,Renamed,327_NCC Ltd._2024_2025.pdf
+NHPC,NHPC,328,Renamed,328_NHPC Ltd._2022_2023.pdf,Renamed,328_NHPC Ltd._2023_2024.pdf,Not Found,
 NLC India,NLCINDIA,329,Not Found,,Not Found,,Not Found,
-NMDC,NMDC,330,Not Found,,Not Found,,Not Found,
+NMDC,NMDC,330,Renamed,330_NMDC Ltd._2022_2023.pdf,Renamed,330_NMDC Ltd._2023_2024.pdf,Not Found,
 NMDC Steel,NSLNISP,331,Not Found,,Not Found,,Not Found,
 NTPC Green Energy,NTPCGREEN,332,Not Found,,Not Found,,Not Found,
-NTPC,NTPC,333,Not Found,,Not Found,,Not Found,
+NTPC,NTPC,333,Renamed,333_NTPC Ltd._2022_2023.pdf,Renamed,333_NTPC Ltd._2023_2024.pdf,Renamed,333_NTPC Ltd._2024_2025.pdf
 Narayana Hrudayalaya,NH,334,Not Found,,Not Found,,Not Found,
 National Aluminium Co.,NATIONALUM,335,Not Found,,Not Found,,Not Found,
-Nava,NAVA,336,Not Found,,Not Found,,Not Found,
+Nava,NAVA,336,Not Found,,Renamed,336_Nava Ltd._2023_2024.pdf,Renamed,336_Nava Ltd._2024_2025.pdf
 Navin Fluorine International,NAVINFLUOR,337,Not Found,,Not Found,,Not Found,
-Nestle India,NESTLEIND,338,Not Found,,Not Found,,Not Found,
+Nestle India,NESTLEIND,338,Not Found,,Renamed,338_Nestle India Ltd._2023_2024.pdf,Not Found,
 Netweb Technologies India,NETWEB,339,Not Found,,Not Found,,Not Found,
 Network18 Media & Investments,NETWORK18,340,Not Found,,Not Found,,Not Found,
 Neuland Laboratories,NEULANDLAB,341,Not Found,,Not Found,,Not Found,
 Newgen Software Technologies,NEWGEN,342,Not Found,,Not Found,,Not Found,
 Nippon Life India Asset Management,NAM-INDIA,343,Not Found,,Not Found,,Not Found,
 Niva Bupa Health Insurance Company,NIVABUPA,344,Not Found,,Not Found,,Not Found,
-Nuvama Wealth Management,NUVAMA,345,Not Found,,Not Found,,Not Found,
-Oberoi Realty,OBEROIRLTY,346,Not Found,,Not Found,,Not Found,
+Nuvama Wealth Management,NUVAMA,345,Not Found,,Renamed,345_Nuvama Wealth Management Ltd._2023_2024.pdf,Renamed,345_Nuvama Wealth Management Ltd._2024_2025.pdf
+Oberoi Realty,OBEROIRLTY,346,Renamed,346_Oberoi Realty Ltd._2022_2023.pdf,Renamed,346_Oberoi Realty Ltd._2023_2024.pdf,Renamed,346_Oberoi Realty Ltd._2024_2025.pdf
 Oil & Natural Gas Corporation,ONGC,347,Not Found,,Not Found,,Not Found,
-Oil India,OIL,348,Not Found,,Not Found,,Not Found,
+Oil India,OIL,348,Renamed,348_Oil India Ltd._2022_2023.pdf,Renamed,348_Oil India Ltd._2023_2024.pdf,Renamed,348_Oil India Ltd._2024_2025.pdf
 Ola Electric Mobility,OLAELEC,349,Not Found,,Not Found,,Not Found,
 Olectra Greentech,OLECTRA,350,Not Found,,Not Found,,Not Found,
 One 97 Communications,PAYTM,351,Not Found,,Not Found,,Not Found,
 Oracle Financial Services Software,OFSS,352,Not Found,,Not Found,,Not Found,
-PB Fintech,POLICYBZR,353,Not Found,,Not Found,,Not Found,
+PB Fintech,POLICYBZR,353,Not Found,,Not Found,,Renamed,353_PB Fintech Ltd._2024_2025.pdf
 PCBL Chemical,PCBL,354,Not Found,,Not Found,,Not Found,
 PG Electroplast,PGEL,355,Not Found,,Not Found,,Not Found,
 PI Industries,PIIND,356,Not Found,,Not Found,,Not Found,
 PNB Housing Finance,PNBHOUSING,357,Not Found,,Not Found,,Not Found,
 PNC Infratech,PNCINFRA,358,Not Found,,Not Found,,Not Found,
 PTC Industries,PTCIL,359,Not Found,,Not Found,,Not Found,
-PVR INOX,PVRINOX,360,Not Found,,Not Found,,Not Found,
+PVR INOX,PVRINOX,360,Renamed,360_PVR INOX Ltd._2022_2023.pdf,Not Found,,Not Found,
 Page Industries,PAGEIND,361,Not Found,,Not Found,,Not Found,
-Patanjali Foods,PATANJALI,362,Not Found,,Not Found,,Not Found,
-Persistent Systems,PERSISTENT,363,Not Found,,Not Found,,Not Found,
+Patanjali Foods,PATANJALI,362,Renamed,362_Patanjali Foods Ltd._2022_2023.pdf,Renamed,362_Patanjali Foods Ltd._2023_2024.pdf,Renamed,362_Patanjali Foods Ltd._2024_2025.pdf
+Persistent Systems,PERSISTENT,363,Not Found,,Renamed,363_Persistent Systems Ltd._2023_2024.pdf,Renamed,363_Persistent Systems Ltd._2024_2025.pdf
 Petronet LNG,PETRONET,364,Not Found,,Not Found,,Not Found,
 Pfizer,PFIZER,365,Not Found,,Not Found,,Not Found,
 Phoenix Mills,PHOENIXLTD,366,Not Found,,Not Found,,Not Found,
 Pidilite Industries,PIDILITIND,367,Not Found,,Not Found,,Not Found,
 Piramal Enterprises,PEL,368,Not Found,,Not Found,,Not Found,
 Piramal Pharma,PPLPHARMA,369,Not Found,,Not Found,,Not Found,
-Poly Medicure,POLYMED,370,Not Found,,Not Found,,Not Found,
-Polycab India,POLYCAB,371,Not Found,,Not Found,,Not Found,
-Poonawalla Fincorp,POONAWALLA,372,Not Found,,Not Found,,Not Found,
+Poly Medicure,POLYMED,370,Renamed,370_Poly Medicure Ltd._2022_2023.pdf,Renamed,370_Poly Medicure Ltd._2023_2024.pdf,Renamed,370_Poly Medicure Ltd._2024_2025.pdf
+Polycab India,POLYCAB,371,Renamed,371_Polycab India Ltd._2022_2023.pdf,Renamed,371_Polycab India Ltd._2023_2024.pdf,Renamed,371_Polycab India Ltd._2024_2025.pdf
+Poonawalla Fincorp,POONAWALLA,372,Not Found,,Not Found,,Renamed,372_Poonawalla Fincorp Ltd._2024_2025.pdf
 Power Finance Corporation,PFC,373,Not Found,,Not Found,,Not Found,
-Power Grid Corporation of India,POWERGRID,374,Not Found,,Not Found,,Not Found,
+Power Grid Corporation of India,POWERGRID,374,Renamed,374_Power Grid Corporation of India Ltd._2022_2023.pdf,Renamed,374_Power Grid Corporation of India Ltd._2023_2024.pdf,Renamed,374_Power Grid Corporation of India Ltd._2024_2025.pdf
 Praj Industries,PRAJIND,375,Not Found,,Not Found,,Not Found,
 Premier Energies,PREMIERENE,376,Not Found,,Not Found,,Not Found,
-Prestige Estates Projects,PRESTIGE,377,Not Found,,Not Found,,Not Found,
-Punjab National Bank,PNB,378,Not Found,,Not Found,,Not Found,
-R R Kabel,RRKABEL,379,Not Found,,Not Found,,Not Found,
-RBL Bank,RBLBANK,380,Not Found,,Not Found,,Not Found,
-REC,RECLTD,381,Not Found,,Not Found,,Not Found,
+Prestige Estates Projects,PRESTIGE,377,Not Found,,Not Found,,Renamed,377_Prestige Estates Projects Ltd._2024_2025.pdf
+Punjab National Bank,PNB,378,Renamed,378_Punjab National Bank_2022_2023.pdf,Renamed,378_Punjab National Bank_2023_2024.pdf,Renamed,378_Punjab National Bank_2024_2025.pdf
+R R Kabel,RRKABEL,379,Not Found,,Renamed,379_R R Kabel Ltd._2023_2024.pdf,Renamed,379_R R Kabel Ltd._2024_2025.pdf
+RBL Bank,RBLBANK,380,Renamed,380_RBL Bank Ltd._2022_2023.pdf,Renamed,380_RBL Bank Ltd._2023_2024.pdf,Renamed,380_RBL Bank Ltd._2024_2025.pdf
+REC,RECLTD,381,Renamed,381_REC Ltd._2022_2023.pdf,Not Found,,Renamed,381_REC Ltd._2024_2025.pdf
 RHI MAGNESITA INDIA LTD.,RHIM,382,Not Found,,Not Found,,Not Found,
-RITES,RITES,383,Not Found,,Not Found,,Not Found,
+RITES,RITES,383,Renamed,383_RITES Ltd._2022_2023.pdf,Renamed,383_RITES Ltd._2023_2024.pdf,Renamed,383_RITES Ltd._2024_2025.pdf
 Radico Khaitan Ltd,RADICO,384,Not Found,,Not Found,,Not Found,
 Rail Vikas Nigam,RVNL,385,Not Found,,Not Found,,Not Found,
 Railtel Corporation Of India,RAILTEL,386,Not Found,,Not Found,,Not Found,
-Rainbow Childrens Medicare,RAINBOW,387,Not Found,,Not Found,,Not Found,
+Rainbow Childrens Medicare,RAINBOW,387,Renamed,387_Rainbow Childrens Medicare Ltd._2022_2023.pdf,Not Found,,Not Found,
 Ramkrishna Forgings,RKFORGE,388,Not Found,,Not Found,,Not Found,
 Rashtriya Chemicals & Fertilizers,RCF,389,Not Found,,Not Found,,Not Found,
 RattanIndia Enterprises,RTNINDIA,390,Not Found,,Not Found,,Not Found,
-Raymond Lifestyle,RAYMONDLSL,391,Not Found,,Not Found,,Not Found,
+Raymond Lifestyle,RAYMONDLSL,391,Not Found,,Not Found,,Renamed,391_Raymond Lifestyle Ltd._2024_2025.pdf
 Raymond,RAYMOND,392,Not Found,,Not Found,,Not Found,
-Redington,REDINGTON,393,Not Found,,Not Found,,Not Found,
-Reliance Industries,RELIANCE,394,Not Found,,Not Found,,Not Found,
-Reliance Power,RPOWER,395,Not Found,,Not Found,,Not Found,
-Route Mobile,ROUTE,396,Not Found,,Not Found,,Not Found,
+Redington,REDINGTON,393,Not Found,,Renamed,393_Redington Ltd._2023_2024.pdf,Not Found,
+Reliance Industries,RELIANCE,394,Renamed,394_Reliance Industries Ltd._2022_2023.pdf,Renamed,394_Reliance Industries Ltd._2023_2024.pdf,Renamed,394_Reliance Industries Ltd._2024_2025.pdf
+Reliance Power,RPOWER,395,Renamed,395_Reliance Power Ltd._2022_2023.pdf,Renamed,395_Reliance Power Ltd._2023_2024.pdf,Renamed,395_Reliance Power Ltd._2024_2025.pdf
+Route Mobile,ROUTE,396,Not Found,,Not Found,,Renamed,396_Route Mobile Ltd._2024_2025.pdf
 SBFC Finance,SBFC,397,Not Found,,Not Found,,Not Found,
 SBI Cards and Payment Services,SBICARD,398,Not Found,,Not Found,,Not Found,
 SBI Life Insurance Company,SBILIFE,399,Not Found,,Not Found,,Not Found,
-SJVN,SJVN,400,Not Found,,Not Found,,Not Found,
-SKF India,SKFINDIA,401,Not Found,,Not Found,,Not Found,
-SRF,SRF,402,Not Found,,Not Found,,Not Found,
+SJVN,SJVN,400,Renamed,400_SJVN Ltd._2022_2023.pdf,Renamed,400_SJVN Ltd._2023_2024.pdf,Renamed,400_SJVN Ltd._2024_2025.pdf
+SKF India,SKFINDIA,401,Renamed,401_SKF India Ltd._2022_2023.pdf,Renamed,401_SKF India Ltd._2023_2024.pdf,Renamed,401_SKF India Ltd._2024_2025.pdf
+SRF,SRF,402,Renamed,402_SRF Ltd._2022_2023.pdf,Renamed,402_SRF Ltd._2023_2024.pdf,Renamed,402_SRF Ltd._2024_2025.pdf
 Sagility India,SAGILITY,403,Not Found,,Not Found,,Not Found,
 Sai Life Sciences,SAILIFE,404,Not Found,,Not Found,,Not Found,
-Sammaan Capital,SAMMAANCAP,405,Not Found,,Not Found,,Not Found,
-Samvardhana Motherson International,MOTHERSON,406,Not Found,,Not Found,,Not Found,
+Sammaan Capital,SAMMAANCAP,405,Not Found,,Renamed,405_Sammaan Capital Ltd._2023_2024.pdf,Not Found,
+Samvardhana Motherson International,MOTHERSON,406,Not Found,,Renamed,406_Samvardhana Motherson International Ltd._2023_2024.pdf,Not Found,
 Sapphire Foods India,SAPPHIRE,407,Not Found,,Not Found,,Not Found,
 Sarda Energy and Minerals,SARDAEN,408,Not Found,,Not Found,,Not Found,
-Saregama India Ltd,SAREGAMA,409,Not Found,,Not Found,,Not Found,
-Schaeffler India,SCHAEFFLER,410,Not Found,,Not Found,,Not Found,
+Saregama India Ltd,SAREGAMA,409,Renamed,409_Saregama India Ltd_2022_2023.pdf,Renamed,409_Saregama India Ltd_2023_2024.pdf,Not Found,
+Schaeffler India,SCHAEFFLER,410,Not Found,,Not Found,,Renamed,410_Schaeffler India Ltd._2024_2025.pdf
 Schneider Electric Infrastructure,SCHNEIDER,411,Not Found,,Not Found,,Not Found,
 Shipping Corporation of India,SCI,412,Not Found,,Not Found,,Not Found,
 Shree Cement,SHREECEM,413,Not Found,,Not Found,,Not Found,
 Shree Renuka Sugars,RENUKA,414,Not Found,,Not Found,,Not Found,
-Shriram Finance,SHRIRAMFIN,415,Not Found,,Not Found,,Not Found,
+Shriram Finance,SHRIRAMFIN,415,Not Found,,Renamed,415_Shriram Finance Ltd._2023_2024.pdf,Renamed,415_Shriram Finance Ltd._2024_2025.pdf
 Shyam Metalics and Energy,SHYAMMETL,416,Not Found,,Not Found,,Not Found,
-Siemens,SIEMENS,417,Not Found,,Not Found,,Not Found,
+Siemens,SIEMENS,417,Renamed,417_Siemens Ltd._2022_2023.pdf,Renamed,417_Siemens Ltd._2023_2024.pdf,Not Found,
 Signatureglobal (India),SIGNATURE,418,Not Found,,Not Found,,Not Found,
-Sobha,SOBHA,419,Not Found,,Not Found,,Not Found,
+Sobha,SOBHA,419,Renamed,419_Sobha Ltd._2022_2023.pdf,Renamed,419_Sobha Ltd._2023_2024.pdf,Not Found,
 Solar Industries India,SOLARINDS,420,Not Found,,Not Found,,Not Found,
 Sona BLW Precision Forgings,SONACOMS,421,Not Found,,Not Found,,Not Found,
-Sonata Software,SONATSOFTW,422,Not Found,,Not Found,,Not Found,
-Star Health and Allied Insurance Company,STARHEALTH,423,Not Found,,Not Found,,Not Found,
+Sonata Software,SONATSOFTW,422,Renamed,422_Sonata Software Ltd._2022_2023.pdf,Renamed,422_Sonata Software Ltd._2023_2024.pdf,Renamed,422_Sonata Software Ltd._2024_2025.pdf
+Star Health and Allied Insurance Company,STARHEALTH,423,Renamed,423_Star Health and Allied Insurance Company Ltd._2022_2023.pdf,Renamed,423_Star Health and Allied Insurance Company Ltd._2023_2024.pdf,Renamed,423_Star Health and Allied Insurance Company Ltd._2024_2025.pdf
 State Bank of India,SBIN,424,Not Found,,Not Found,,Not Found,
-Steel Authority of India,SAIL,425,Not Found,,Not Found,,Not Found,
+Steel Authority of India,SAIL,425,Not Found,,Renamed,425_Steel Authority of India Ltd._2023_2024.pdf,Renamed,425_Steel Authority of India Ltd._2024_2025.pdf
 Sterling and Wilson Renewable Energy,SWSOLAR,426,Not Found,,Not Found,,Not Found,
-Sumitomo Chemical India,SUMICHEM,427,Not Found,,Not Found,,Not Found,
+Sumitomo Chemical India,SUMICHEM,427,Not Found,,Renamed,427_Sumitomo Chemical India Ltd._2023_2024.pdf,Not Found,
 Sun Pharmaceutical Industries,SUNPHARMA,428,Not Found,,Not Found,,Not Found,
-Sun TV Network,SUNTV,429,Not Found,,Not Found,,Not Found,
+Sun TV Network,SUNTV,429,Not Found,,Renamed,429_Sun TV Network Ltd._2023_2024.pdf,Renamed,429_Sun TV Network Ltd._2024_2025.pdf
 Sundaram Finance,SUNDARMFIN,430,Not Found,,Not Found,,Not Found,
 Sundram Fasteners,SUNDRMFAST,431,Not Found,,Not Found,,Not Found,
 Supreme Industries,SUPREMEIND,432,Not Found,,Not Found,,Not Found,
-Suzlon Energy,SUZLON,433,Not Found,,Not Found,,Not Found,
-Swan Corp,SWANCORP,434,Not Found,,Not Found,,Not Found,
+Suzlon Energy,SUZLON,433,Renamed,433_Suzlon Energy Ltd._2022_2023.pdf,Renamed,433_Suzlon Energy Ltd._2023_2024.pdf,Renamed,433_Suzlon Energy Ltd._2024_2025.pdf
+Swan Corp,SWANCORP,434,Renamed,434_Swan Corp Ltd._2022_2023.pdf,Not Found,,Renamed,434_Swan Corp Ltd._2024_2025.pdf
 Swiggy,SWIGGY,435,Not Found,,Not Found,,Not Found,
 Syngene International,SYNGENE,436,Not Found,,Not Found,,Not Found,
 Syrma SGS Technology,SYRMA,437,Not Found,,Not Found,,Not Found,
-TBO Tek,TBOTEK,438,Not Found,,Not Found,,Not Found,
+TBO Tek,TBOTEK,438,Not Found,,Not Found,,Renamed,438_TBO Tek Ltd._2024_2025.pdf
 TVS Motor Company,TVSMOTOR,439,Not Found,,Not Found,,Not Found,
 Tanla Platforms,TANLA,440,Not Found,,Not Found,,Not Found,
-Tata Chemicals,TATACHEM,441,Not Found,,Not Found,,Not Found,
-Tata Communications,TATACOMM,442,Not Found,,Not Found,,Not Found,
+Tata Chemicals,TATACHEM,441,Renamed,441_Tata Chemicals Ltd._2022_2023.pdf,Not Found,,Not Found,
+Tata Communications,TATACOMM,442,Renamed,442_Tata Communications Ltd._2022_2023.pdf,Not Found,,Not Found,
 Tata Consultancy Services,TCS,443,Not Found,,Not Found,,Not Found,
-Tata Consumer Products,TATACONSUM,444,Not Found,,Not Found,,Not Found,
-Tata Elxsi,TATAELXSI,445,Not Found,,Not Found,,Not Found,
-Tata Investment Corporation,TATAINVEST,446,Not Found,,Not Found,,Not Found,
-Tata Motors,TATAMOTORS,447,Not Found,,Not Found,,Not Found,
+Tata Consumer Products,TATACONSUM,444,Renamed,444_Tata Consumer Products Ltd._2022_2023.pdf,Not Found,,Not Found,
+Tata Elxsi,TATAELXSI,445,Renamed,445_Tata Elxsi Ltd._2022_2023.pdf,Renamed,445_Tata Elxsi Ltd._2023_2024.pdf,Renamed,445_Tata Elxsi Ltd._2024_2025.pdf
+Tata Investment Corporation,TATAINVEST,446,Not Found,,Renamed,446_Tata Investment Corporation Ltd._2023_2024.pdf,Not Found,
+Tata Motors,TATAMOTORS,447,Renamed,447_Tata Motors Ltd._2022_2023.pdf,Renamed,447_Tata Motors Ltd._2023_2024.pdf,Renamed,447_Tata Motors Ltd._2024_2025.pdf
 Tata Power Co.,TATAPOWER,448,Not Found,,Not Found,,Not Found,
 Tata Steel,TATASTEEL,449,Not Found,,Not Found,,Not Found,
-Tata Technologies,TATATECH,450,Not Found,,Not Found,,Not Found,
+Tata Technologies,TATATECH,450,Renamed,450_Tata Technologies Ltd._2022_2023.pdf,Not Found,,Renamed,450_Tata Technologies Ltd._2024_2025.pdf
 Tata Teleservices (Maharashtra),TTML,451,Not Found,,Not Found,,Not Found,
-Tech Mahindra,TECHM,452,Not Found,,Not Found,,Not Found,
-Techno Electric & Engineering Company,TECHNOE,453,Not Found,,Not Found,,Not Found,
-Tejas Networks,TEJASNET,454,Not Found,,Not Found,,Not Found,
+Tech Mahindra,TECHM,452,Renamed,452_Tech Mahindra Ltd._2022_2023.pdf,Renamed,452_Tech Mahindra Ltd._2023_2024.pdf,Renamed,452_Tech Mahindra Ltd._2024_2025.pdf
+Techno Electric & Engineering Company,TECHNOE,453,Renamed,453_Techno Electric & Engineering Company Ltd._2022_2023.pdf,Not Found,,Not Found,
+Tejas Networks,TEJASNET,454,Renamed,454_Tejas Networks Ltd._2022_2023.pdf,Renamed,454_Tejas Networks Ltd._2023_2024.pdf,Renamed,454_Tejas Networks Ltd._2024_2025.pdf
 The New India Assurance Company,NIACL,455,Not Found,,Not Found,,Not Found,
-The Ramco Cements,RAMCOCEM,456,Not Found,,Not Found,,Not Found,
+The Ramco Cements,RAMCOCEM,456,Renamed,456_The Ramco Cements Ltd._2022_2023.pdf,Renamed,456_The Ramco Cements Ltd._2023_2024.pdf,Renamed,456_The Ramco Cements Ltd._2024_2025.pdf
 Thermax,THERMAX,457,Not Found,,Not Found,,Not Found,
-Timken India,TIMKEN,458,Not Found,,Not Found,,Not Found,
-Titagarh Rail Systems,TITAGARH,459,Not Found,,Not Found,,Not Found,
-Titan Company,TITAN,460,Not Found,,Not Found,,Not Found,
+Timken India,TIMKEN,458,Not Found,,Renamed,458_Timken India Ltd._2023_2024.pdf,Renamed,458_Timken India Ltd._2024_2025.pdf
+Titagarh Rail Systems,TITAGARH,459,Renamed,459_Titagarh Rail Systems Ltd._2022_2023.pdf,Renamed,459_Titagarh Rail Systems Ltd._2023_2024.pdf,Renamed,459_Titagarh Rail Systems Ltd._2024_2025.pdf
+Titan Company,TITAN,460,Renamed,460_Titan Company Ltd._2022_2023.pdf,Renamed,460_Titan Company Ltd._2023_2024.pdf,Renamed,460_Titan Company Ltd._2024_2025.pdf
 Torrent Pharmaceuticals,TORNTPHARM,461,Not Found,,Not Found,,Not Found,
 Torrent Power,TORNTPOWER,462,Not Found,,Not Found,,Not Found,
 Transformers And Rectifiers (India),TARIL,463,Not Found,,Not Found,,Not Found,
-Trent,TRENT,464,Not Found,,Not Found,,Not Found,
-Trident,TRIDENT,465,Not Found,,Not Found,,Not Found,
+Trent,TRENT,464,Renamed,464_Trent Ltd._2022_2023.pdf,Renamed,464_Trent Ltd._2023_2024.pdf,Renamed,464_Trent Ltd._2024_2025.pdf
+Trident,TRIDENT,465,Renamed,465_Trident Ltd._2022_2023.pdf,Not Found,,Renamed,465_Trident Ltd._2024_2025.pdf
 Triveni Engineering & Industries,TRIVENI,466,Not Found,,Not Found,,Not Found,
 Triveni Turbine,TRITURBINE,467,Not Found,,Not Found,,Not Found,
 Tube Investments of India,TIINDIA,468,Not Found,,Not Found,,Not Found,
-UCO Bank,UCOBANK,469,Not Found,,Not Found,,Not Found,
-UNO Minda,UNOMINDA,470,Not Found,,Not Found,,Not Found,
-UPL,UPL,471,Not Found,,Not Found,,Not Found,
+UCO Bank,UCOBANK,469,Renamed,469_UCO Bank_2022_2023.pdf,Renamed,469_UCO Bank_2023_2024.pdf,Renamed,469_UCO Bank_2024_2025.pdf
+UNO Minda,UNOMINDA,470,Renamed,470_UNO Minda Ltd._2022_2023.pdf,Renamed,470_UNO Minda Ltd._2023_2024.pdf,Renamed,470_UNO Minda Ltd._2024_2025.pdf
+UPL,UPL,471,Renamed,471_UPL Ltd._2022_2023.pdf,Not Found,,Renamed,471_UPL Ltd._2024_2025.pdf
 UTI Asset Management Company,UTIAMC,472,Not Found,,Not Found,,Not Found,
 UltraTech Cement,ULTRACEMCO,473,Not Found,,Not Found,,Not Found,
 Union Bank of India,UNIONBANK,474,Not Found,,Not Found,,Not Found,
-United Breweries,UBL,475,Not Found,,Not Found,,Not Found,
-United Spirits,UNITDSPR,476,Not Found,,Not Found,,Not Found,
-Usha Martin,USHAMART,477,Not Found,,Not Found,,Not Found,
+United Breweries,UBL,475,Not Found,,Renamed,475_United Breweries Ltd._2023_2024.pdf,Renamed,475_United Breweries Ltd._2024_2025.pdf
+United Spirits,UNITDSPR,476,Renamed,476_United Spirits Ltd._2022_2023.pdf,Renamed,476_United Spirits Ltd._2023_2024.pdf,Renamed,476_United Spirits Ltd._2024_2025.pdf
+Usha Martin,USHAMART,477,Renamed,477_Usha Martin Ltd._2022_2023.pdf,Not Found,,Renamed,477_Usha Martin Ltd._2024_2025.pdf
 V-Guard Industries,VGUARD,478,Not Found,,Not Found,,Not Found,
-Valor Estate,DBREALTY,479,Not Found,,Not Found,,Not Found,
+Valor Estate,DBREALTY,479,Not Found,,Renamed,479_Valor Estate Ltd._2023_2024.pdf,Not Found,
 Vardhman Textiles,VTL,480,Not Found,,Not Found,,Not Found,
-Varun Beverages,VBL,481,Not Found,,Not Found,,Not Found,
+Varun Beverages,VBL,481,Not Found,,Renamed,481_Varun Beverages Ltd._2023_2024.pdf,Not Found,
 Vedant Fashions,MANYAVAR,482,Not Found,,Not Found,,Not Found,
-Vedanta,VEDL,483,Not Found,,Not Found,,Not Found,
+Vedanta,VEDL,483,Renamed,483_Vedanta Ltd._2022_2023.pdf,Renamed,483_Vedanta Ltd._2023_2024.pdf,Renamed,483_Vedanta Ltd._2024_2025.pdf
 Vijaya Diagnostic Centre,VIJAYA,484,Not Found,,Not Found,,Not Found,
-Vishal Mega Mart,VMM,485,Not Found,,Not Found,,Not Found,
+Vishal Mega Mart,VMM,485,Not Found,,Not Found,,Renamed,485_Vishal Mega Mart Ltd._2024_2025.pdf
 Vodafone Idea,IDEA,486,Renamed,486_Vodafone Idea Ltd._2022_2023.pdf,Renamed,486_Vodafone Idea Ltd._2023_2024.pdf,Renamed,486_Vodafone Idea Ltd._2024_2025.pdf
-Voltas,VOLTAS,487,Not Found,,Not Found,,Not Found,
-Waaree Energies,WAAREEENER,488,Not Found,,Not Found,,Not Found,
+Voltas,VOLTAS,487,Renamed,487_Voltas Ltd._2022_2023.pdf,Renamed,487_Voltas Ltd._2023_2024.pdf,Renamed,487_Voltas Ltd._2024_2025.pdf
+Waaree Energies,WAAREEENER,488,Not Found,,Not Found,,Renamed,488_Waaree Energies Ltd._2024_2025.pdf
 Welspun Corp,WELCORP,489,Not Found,,Not Found,,Not Found,
 Welspun Living,WELSPUNLIV,490,Not Found,,Not Found,,Not Found,
-Westlife Foodworld,WESTLIFE,491,Not Found,,Not Found,,Not Found,
+Westlife Foodworld,WESTLIFE,491,Not Found,,Renamed,491_Westlife Foodworld Ltd._2023_2024.pdf,Renamed,491_Westlife Foodworld Ltd._2024_2025.pdf
 Whirlpool of India,WHIRLPOOL,492,Not Found,,Not Found,,Not Found,
 Wipro,WIPRO,493,Renamed,493_Wipro Ltd._2022_2023.pdf,Renamed,493_Wipro Ltd._2023_2024.pdf,Renamed,493_Wipro Ltd._2024_2025.pdf
-Wockhardt,WOCKPHARMA,494,Not Found,,Not Found,,Not Found,
+Wockhardt,WOCKPHARMA,494,Renamed,494_Wockhardt Ltd._2022_2023.pdf,Renamed,494_Wockhardt Ltd._2023_2024.pdf,Renamed,494_Wockhardt Ltd._2024_2025.pdf
 Yes Bank,YESBANK,495,Renamed,495_Yes Bank Ltd._2022_2023.pdf,Renamed,495_Yes Bank Ltd._2023_2024.pdf,Renamed,495_Yes Bank Ltd._2024_2025.pdf
 ZF Commercial Vehicle Control Systems India,ZFCVINDIA,496,Not Found,,Not Found,,Not Found,
-Zee Entertainment Enterprises,ZEEL,497,Not Found,,Not Found,,Not Found,
-Zen Technologies,ZENTEC,498,Not Found,,Not Found,,Not Found,
-Zensar Technolgies,ZENSARTECH,499,Not Found,,Not Found,,Not Found,
-Zydus Lifesciences,ZYDUSLIFE,500,Renamed,500_Zydus Lifesciences Ltd._2022_2023.pdf,Not Found,,Not Found,
-eClerx Services,ECLERX,501,Not Found,,Not Found,,Not Found,
+Zee Entertainment Enterprises,ZEEL,497,Renamed,497_Zee Entertainment Enterprises Ltd._2022_2023.pdf,Renamed,497_Zee Entertainment Enterprises Ltd._2023_2024.pdf,Not Found,
+Zen Technologies,ZENTEC,498,Renamed,498_Zen Technologies Ltd._2022_2023.pdf,Renamed,498_Zen Technologies Ltd._2023_2024.pdf,Renamed,498_Zen Technologies Ltd._2024_2025.pdf
+Zensar Technolgies,ZENSARTECH,499,Not Found,,Not Found,,Renamed,499_Zensar Technolgies Ltd._2024_2025.pdf
+Zydus Lifesciences,ZYDUSLIFE,500,Renamed,500_Zydus Lifesciences Ltd._2022_2023.pdf,Not Found,,Renamed,500_Zydus Lifesciences Ltd._2024_2025.pdf
+eClerx Services,ECLERX,501,Renamed,501_eClerx Services Ltd._2022_2023.pdf,Renamed,501_eClerx Services Ltd._2023_2024.pdf,Not Found,

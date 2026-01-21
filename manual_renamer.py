@@ -898,17 +898,13 @@ class ManualPDFRenamer:
         # Create output path
         output_path = self.output_folder / new_filename
         
-        # If file already exists, replace it (as per user requirement - no numbers)
-        # But log a warning if this happens
+        # If file already exists, DO NOT REPLACE IT - skip it
         if output_path.exists():
-            logger.warning(f"⚠ WARNING: File already exists: {output_path.name}")
-            logger.warning(f"   This file will be OVERWRITTEN. If this is wrong, check year extraction.")
-            logger.warning(f"   Original file: {pdf_path.name}")
-            logger.warning(f"   Company: {company_data['company_name']}, Year: {year}")
-            try:
-                output_path.unlink()  # Delete existing file
-            except Exception as e:
-                logger.warning(f"Could not delete existing file: {e}")
+            logger.warning(f"⚠ SKIPPING: File already exists in final folder: {output_path.name}")
+            logger.info(f"   Original file will remain in manual_downloads: {pdf_path.name}")
+            logger.info(f"   Company: {company_data['company_name']}, Year: {year}")
+            logger.info(f"   Skipping to preserve existing file (not replacing)")
+            return False, f"File already exists in final folder: {output_path.name} (skipped to preserve existing file)"
         
         # Copy and rename file (all in same folder, no subfolders)
         try:

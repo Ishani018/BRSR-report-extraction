@@ -18,3 +18,9 @@ requests>=2.31.0  # HTTP requests (NSE API, downloads)
 beautifulsoup4>=4.12.0  # HTML parsing (Google Search fallback)
 lxml>=4.9.0  # XML/HTML parsing
 urllib3>=2.0.0  # URL handling
+
+# Topic Modeling
+fastopic>=0.1.0  # FASTopic topic modeling
+bertopic[visualization]>=0.15.0  # BERTopic topic modeling with visualization
+gensim>=4.3.0  # LDA topic modeling
+pyLDAvis>=3.4.0  # LDA visualization
