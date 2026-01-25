@@ -67,18 +67,7 @@ EXTRA_STOPWORDS = {
     'mr', 'mrs', 'ms', 'dr', 'shri', 'smt'
 }
 
-# Seed words (ESG concepts)
-SEED_TOPICS = [
-    ['emission', 'carbon', 'ghg', 'footprint', 'climate'],
-    ['waste', 'effluent', 'recycling', 'plastic', 'hazardous'],
-    ['water', 'consumption', 'conservation', 'groundwater', 'rainwater'],
-    ['energy', 'renewable', 'solar', 'wind', 'electricity'],
-    ['social', 'community', 'csr', 'rural', 'development'],
-    ['safety', 'health', 'incident', 'injury', 'training'],
-    ['governance', 'ethics', 'compliance', 'policy', 'whistleblower'],
-    ['diversity', 'inclusion', 'gender', 'women', 'equality']
-]
-SEED_FLAT = [word for topic in SEED_TOPICS for word in topic]
+# Seed words removed for Unsupervised Semantic Clustering
 
 # --- Preprocessing ---
 
@@ -158,6 +147,7 @@ def main():
     parser.add_argument('--output_dir', type=str, default='esg_topics_output', help='Directory for results')
     parser.add_argument('--limit', type=int, default=0, help='Limit number of files to process (for testing)')
     parser.add_argument('--min_chunk_len', type=int, default=150, help='Minimum char length for a text chunk')
+    parser.add_argument('--min_cluster_size', type=int, default=30, help='Minimum cluster size for HDBSCAN (higher = fewer, denser topics)')
     
     args = parser.parse_args()
     
@@ -242,12 +232,22 @@ def main():
     # UMAP: Random state for reproducibility
     umap_model = UMAP(n_neighbors=15, n_components=5, min_dist=0.0, metric='cosine', random_state=42)
     
-    logger.info("Initializing BERTopic...")
+    # HDBSCAN: Unsupervised Density-Based Clustering
+    # min_cluster_size: Minimum size of a cluster to be considered a topic
+    # prediction_data=True: Required for some visualizations and soft clustering if needed
+    hdbscan_model = HDBSCAN(
+        min_cluster_size=args.min_cluster_size, 
+        metric='euclidean', 
+        cluster_selection_method='eom', 
+        prediction_data=True
+    )
+    
+    logger.info(f"Initializing BERTopic (Unsupervised, min_cluster_size={args.min_cluster_size})...")
     topic_model = BERTopic(
         vectorizer_model=vectorizer_model,
         umap_model=umap_model,
-        nr_topics="auto", # Auto-reduce
-        seed_topic_list=SEED_TOPICS,
+        hdbscan_model=hdbscan_model,
+        nr_topics=None, # auto-reduce removed for pure discovery
         verbose=True,
         calculate_probabilities=False # Save memory
     )
