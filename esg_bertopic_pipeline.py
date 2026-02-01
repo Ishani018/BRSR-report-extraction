@@ -291,14 +291,40 @@ def main():
     
     doc_df.to_csv(output_path / "document_topics.csv", index=False)
     
-    # D. Visualizations
+    # Save the model for future use
+    logger.info("Saving BERTopic model...")
+    topic_model.save(str(output_path / "bertopic_model"))
+    
+    # D. Generate readable topic names and update visualizations
+    logger.info("Generating readable topic names for visualizations...")
     try:
-        vis_topics = topic_model.visualize_topics()
+        # Create readable name mapping
+        readable_names = {}
+        for topic_id in topic_model.get_topics().keys():
+            if topic_id == -1:
+                readable_names[topic_id] = "Outliers - Mixed Environmental Topics"
+            else:
+                # Get topic info
+                topic_info = topic_model.get_topic(topic_id)
+                if topic_info:
+                    keywords = [word for word, _ in topic_info[:3]]
+                    # Create readable name from top keywords
+                    readable_names[topic_id] = " & ".join([kw.replace("_", " ").title() for kw in keywords])
+        
+        # Update model with readable labels
+        topic_model.set_topic_labels(readable_names)
+        logger.info(f"Updated labels for {len(readable_names)} topics")
+    except Exception as e:
+        logger.warning(f"Could not update topic labels: {e}")
+    
+    # D. Visualizations (now with readable names)
+    try:
+        vis_topics = topic_model.visualize_topics(custom_labels=True)
         vis_topics.write_html(str(output_path / "intertopic_distance_map.html"))
         
-        vis_bar = topic_model.visualize_barchart(top_n_topics=20)
+        vis_bar = topic_model.visualize_barchart(top_n_topics=30, custom_labels=True)
         vis_bar.write_html(str(output_path / "topic_barchart.html"))
-        logger.info("Visualizations saved.")
+        logger.info("Visualizations saved with readable topic names.")
     except Exception as e:
         logger.warning(f"Could not generate visualisations: {e}")
 

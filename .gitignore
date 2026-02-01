@@ -1,66 +1,58 @@
-# Add output and log directories to .gitignore
-outputs/
-logs/
-# BRSR reports directory (contains downloads and processed outputs)
-brsr_reports/
-
-# Exclude data files but allow Python source files in data/ directory
-data/*.xlsx
-data/*.csv
-data/*.json
-!data/*.py
-!data/__init__.py
-
-# Python cache
+# Python
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
 
-# Virtual environments
+# Virtual Environment
 venv/
 env/
 ENV/
-.venv/
 
-# Environment variables
-.env
-.env.local
-
-# IDE
-.vscode/
+# PyCharm
 .idea/
-*.swp
-*.swo
-*~
 
-# OS
-.DS_Store
-Thumbs.db
+# VS Code
+.vscode/
 
-# Test files
-test_*.pdf
-sample_*.pdf
+# Project Outputs and Data
+outputs/
+brsr_reports/
+esg_topics_output/
+esg_topics_optimized/
+esg_topics_enhanced/
+data/
 
-# Temporary files
-*.tmp
-*.temp
-
-# Large/Binary File Types (Critical: Do not push large files to GitHub)
-# PDF files - Ignore all PDFs (we do not want to push thousands of PDFs)
-*.pdf
-
-# Document files
-*.docx
-
-# Archive files
-*.zip
-
-# Excel files - Ignore large dataset files (already covered in data/ folder above)
+# Data Files
+*.csv
+*.json
 *.xlsx
+*.parquet
+*.pkl
+*.pickle
 
-# Exceptions (Keep these files - explicitly allowed)
-!requirements.txt
-!*.py
-!README.md
-!README*.md
+# Logs
+logs/
+*.log
+
+# Sensitive
+.env
+config.py

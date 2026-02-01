@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BERTopic Analysis Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --secondary-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            --accent-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            --dark-bg: #0f0f1e;
+            --darker-bg: #0a0a15;
+            --card-bg: rgba(255, 255, 255, 0.05);
+            --card-border: rgba(255, 255, 255, 0.1);
+            --text-primary: #ffffff;
+            --text-secondary: #a0aec0;
+            --hover-bg: rgba(255, 255, 255, 0.08);
+            --active-bg: rgba(102, 126, 234, 0.2);
+            --shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            --glow: 0 0 20px rgba(102, 126, 234, 0.3);
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--dark-bg);
+            color: var(--text-primary);
+            overflow: hidden;
+            height: 100vh;
+            background-image:
+                radial-gradient(at 0% 0%, rgba(102, 126, 234, 0.1) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(118, 75, 162, 0.1) 0px, transparent 50%);
+        }
+
+        .dashboard {
+            display: flex;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        /* Sidebar Navigation */
+        .sidebar {
+            width: 320px;
+            background: var(--darker-bg);
+            backdrop-filter: blur(10px);
+            border-right: 1px solid var(--card-border);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            box-shadow: var(--shadow);
+            z-index: 10;
+        }
+
+        .sidebar::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .sidebar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .sidebar::-webkit-scrollbar-thumb {
+            background: var(--card-border);
+            border-radius: 3px;
+        }
+
+        .sidebar::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .logo {
+            padding: 32px 24px;
+            border-bottom: 1px solid var(--card-border);
+        }
+
+        .logo h1 {
+            font-size: 24px;
+            font-weight: 700;
+            background: var(--primary-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 8px;
+        }
+
+        .logo p {
+            font-size: 13px;
+            color: var(--text-secondary);
+            font-weight: 400;
+        }
+
+        .nav-section {
+            padding: 24px 16px 16px;
+        }
+
+        .nav-section-title {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--text-secondary);
+            padding: 0 12px 12px;
+        }
+
+        .nav-button {
+            width: 100%;
+            padding: 14px 16px;
+            margin-bottom: 6px;
+            background: transparent;
+            border: 1px solid transparent;
+            border-radius: 12px;
+            color: var(--text-primary);
+            font-size: 14px;
+            font-weight: 500;
+            text-align: left;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .nav-button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: var(--primary-gradient);
+            opacity: 0;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: -1;
+        }
+
+        .nav-button:hover {
+            background: var(--hover-bg);
+            border-color: var(--card-border);
+            transform: translateX(4px);
+        }
+
+        .nav-button:hover::before {
+            left: 0;
+            opacity: 0.1;
+        }
+
+        .nav-button.active {
+            background: var(--active-bg);
+            border-color: rgba(102, 126, 234, 0.4);
+            box-shadow: var(--glow);
+            transform: translateX(0);
+        }
+
+        .nav-button.active::after {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 4px;
+            height: 60%;
+            background: var(--primary-gradient);
+            border-radius: 0 4px 4px 0;
+        }
+
+        .nav-button-icon {
+            display: inline-block;
+            margin-right: 12px;
+            font-size: 16px;
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .header {
+            padding: 24px 32px;
+            background: var(--darker-bg);
+            border-bottom: 1px solid var(--card-border);
+            backdrop-filter: blur(10px);
+        }
+
+        .header h2 {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .header p {
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        .viz-container {
+            flex: 1;
+            padding: 24px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .viz-frame-wrapper {
+            flex: 1;
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: var(--shadow);
+            backdrop-filter: blur(10px);
+            position: relative;
+        }
+
+        .viz-frame {
+            width: 100%;
+            height: 100%;
+            border: none;
+            display: block;
+        }
+
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            z-index: 5;
+        }
+
+        .spinner {
+            width: 48px;
+            height: 48px;
+            border: 4px solid var(--card-border);
+            border-top-color: #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 16px;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .loading-text {
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        /* Empty State */
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            text-align: center;
+            padding: 48px;
+        }
+
+        .empty-state-icon {
+            font-size: 64px;
+            margin-bottom: 24px;
+            opacity: 0.3;
+        }
+
+        .empty-state h3 {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+
+        .empty-state p {
+            font-size: 16px;
+            color: var(--text-secondary);
+            max-width: 500px;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 100%;
+                max-width: 280px;
+                position: absolute;
+                left: -280px;
+                transition: left 0.3s ease;
+                z-index: 100;
+            }
+
+            .sidebar.open {
+                left: 0;
+            }
+        }
+
+        /* Smooth transitions */
+        .fade-in {
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="dashboard">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="logo">
+                <h1>BERTopic Dashboard</h1>
+                <p>ESG Analysis Results</p>
+            </div>
+
+            <nav class="nav-section">
+                <div class="nav-section-title">Optimized Results</div>
+                <button class="nav-button" onclick="loadVisualization('exploratory_themes_visualization.html', this)">
+                    <span class="nav-button-icon">📊</span>
+                    Exploratory Themes Table
+                </button>
+                <button class="nav-button"
+                    onclick="loadVisualization('esg_topics_output/all_topics_detailed.html', this)">
+                    <span class="nav-button-icon">📋</span>
+                    All Topics Detailed Table
+                </button>
+                <button class="nav-button"
+                    onclick="loadVisualization('esg_topics_optimized/topic_barchart.html', this)">
+                    <span class="nav-button-icon">📊</span>
+                    Topic Bar Chart
+                </button>
+                <button class="nav-button"
+                    onclick="loadVisualization('esg_topics_optimized/intertopic_distance_map.html', this)">
+                    <span class="nav-button-icon">🗺️</span>
+                    Intertopic Distance Map
+                </button>
+            </nav>
+
+            <nav class="nav-section">
+                <div class="nav-section-title">Additional Views</div>
+                <button class="nav-button" onclick="loadVisualization('esg_topics_output/topic_explorer.html', this)">
+                    <span class="nav-button-icon">🔍</span>
+                    Topic Explorer
+                </button>
+                <button class="nav-button" onclick="loadVisualization('esg_topics_output/topic_barchart.html', this)">
+                    <span class="nav-button-icon">📊</span>
+                    Topic Bar Chart (Original)
+                </button>
+                <button class="nav-button"
+                    onclick="loadVisualization('esg_topics_output/intertopic_distance_map.html', this)">
+                    <span class="nav-button-icon">🗺️</span>
+                    Intertopic Distance Map (Original)
+                </button>
+                <button class="nav-button"
+                    onclick="loadVisualization('esg_topics_output/esg_category_breakdown.html', this)">
+                    <span class="nav-button-icon">🏷️</span>
+                    ESG Category Breakdown
+                </button>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="header">
+                <h2 id="currentTitle">Welcome to BERTopic Dashboard</h2>
+                <p id="currentDescription">Select a visualization from the sidebar to begin</p>
+            </header>
+
+            <div class="viz-container">
+                <div class="viz-frame-wrapper">
+                    <div id="emptyState" class="empty-state">
+                        <div class="empty-state-icon">📈</div>
+                        <h3>No Visualization Selected</h3>
+                        <p>Choose a visualization from the sidebar to view your BERTopic analysis results. All your
+                            topic models and insights are available in one place.</p>
+                    </div>
+                    <div id="loading" class="loading" style="display: none;">
+                        <div class="spinner"></div>
+                        <div class="loading-text">Loading visualization...</div>
+                    </div>
+                    <iframe id="vizFrame" class="viz-frame" style="display: none;"></iframe>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const visualizationTitles = {
+            'esg_topics_optimized/topic_barchart.html': {
+                title: 'Optimized Topic Bar Chart',
+                description: 'Distribution of topics across documents (optimized model)'
+            },
+            'esg_topics_optimized/intertopic_distance_map.html': {
+                title: 'Optimized Intertopic Distance Map',
+                description: 'Visual representation of topic relationships and distances (optimized model)'
+            },
+            'esg_topics_output/topic_explorer.html': {
+                title: 'Topic Explorer',
+                description: 'Interactive exploration of topics and their keywords'
+            },
+            'esg_topics_output/topic_barchart.html': {
+                title: 'Topic Bar Chart',
+                description: 'Distribution of topics across documents'
+            },
+            'esg_topics_output/intertopic_distance_map.html': {
+                title: 'Intertopic Distance Map',
+                description: 'Visual representation of topic relationships and distances'
+            },
+            'esg_topics_output/esg_category_breakdown.html': {
+                title: 'ESG Category Breakdown',
+                description: 'Analysis of topics categorized by ESG themes'
+            },
+            'esg_topics_output/all_topics_detailed.html': {
+                title: 'All Topics Detailed',
+                description: 'Comprehensive view of all discovered topics with detailed information'
+            }
+        };
+
+        function loadVisualization(path, button) {
+            // Update active button state
+            document.querySelectorAll('.nav-button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            button.classList.add('active');
+
+            // Update header
+            const vizInfo = visualizationTitles[path];
+            document.getElementById('currentTitle').textContent = vizInfo.title;
+            document.getElementById('currentDescription').textContent = vizInfo.description;
+
+            // Show loading state
+            document.getElementById('emptyState').style.display = 'none';
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('vizFrame').style.display = 'none';
+
+            // Load visualization
+            const iframe = document.getElementById('vizFrame');
+            iframe.onload = function () {
+                document.getElementById('loading').style.display = 'none';
+                iframe.style.display = 'block';
+                iframe.classList.add('fade-in');
+            };
+
+            // Set iframe source
+            iframe.src = path;
+        }
+
+        // Optional: Auto-load first visualization
+        // Uncomment the line below if you want to automatically load the first viz on page load
+        // window.addEventListener('load', () => loadVisualization('esg_topics_optimized/topic_barchart.html', document.querySelector('.nav-button')));
+    </script>
+</body>
+
+</html>

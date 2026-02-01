@@ -22,6 +22,8 @@ urllib3>=2.0.0  # URL handling
 # Topic Modeling
 fastopic>=0.1.0  # FASTopic topic modeling
 bertopic[visualization]>=0.15.0  # BERTopic topic modeling with visualization
+top2vec>=1.0.27  # Top2Vec alternative topic modeling
 gensim>=4.3.0  # LDA topic modeling
 pyLDAvis>=3.4.0  # LDA visualization
 spacy>=3.7.0  # NLP preprocessing
+sentence-transformers>=2.2.0  # Advanced embeddings for enhanced BERTopic
